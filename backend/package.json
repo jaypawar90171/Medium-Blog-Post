@@ -8,6 +8,8 @@
   },
   "dependencies": {
     "@prisma/client": "^7.10.0",
+    "@prisma/extension-accelerate": "^3.0.1",
+    "bcryptjs": "^3.0.3",
     "dotenv": "^17.4.2",
     "hono": "^4.13.5",
     "prisma": "^7.10.0"
