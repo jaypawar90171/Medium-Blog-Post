@@ -1,0 +1,22 @@
+info:
+  name: Delete Blog from Bookmark
+  type: http
+  seq: 3
+
+http:
+  method: DELETE
+  url: "{{BASE_URL}}/engagement/bookmark/:id"
+  headers:
+    - name: Authorization
+      value: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6IjI1ZmFjOTI5LWIwYWUtNDQwMS05YzUxLTg1MDk4N2ZmMGYwYiJ9.aPCtQEcNQS8BwS8C72zyaX62KSyV2Ls_qVcVmQJtjSg
+  params:
+    - name: id
+      value: 50da28a4-de57-4748-9ab8-96154137174c
+      type: path
+  auth: inherit
+
+settings:
+  encodeUrl: true
+  timeout: 0
+  followRedirects: true
+  maxRedirects: 5

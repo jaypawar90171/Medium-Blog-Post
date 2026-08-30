@@ -1,0 +1,22 @@
+info:
+  name: Publish Blog
+  type: http
+  seq: 9
+
+http:
+  method: PATCH
+  url: "{{BASE_URL}}/blog/:blogId/publish"
+  headers:
+    - name: Authorization
+      value: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6ImI5MTU2MjRiLTViN2EtNDU3Ny1hZWZkLTVkMzAzYzQyODQ0NSJ9.1-DGwh1iTDDa5-w8GBUgLJ_WcGdNX4NRpcTi12XDYQM
+  params:
+    - name: blogId
+      value: ""
+      type: path
+  auth: inherit
+
+settings:
+  encodeUrl: true
+  timeout: 0
+  followRedirects: true
+  maxRedirects: 5

@@ -1,14 +1,18 @@
 info:
-  name: Get All Blog
+  name: Delete by Id
   type: http
-  seq: 7
+  seq: 8
 
 http:
-  method: GET
-  url: "{{BASE_URL}}/blog/bulk"
+  method: DELETE
+  url: "{{BASE_URL}}/blog/:blogId"
   headers:
     - name: Authorization
       value: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6ImI5MTU2MjRiLTViN2EtNDU3Ny1hZWZkLTVkMzAzYzQyODQ0NSJ9.1-DGwh1iTDDa5-w8GBUgLJ_WcGdNX4NRpcTi12XDYQM
+  params:
+    - name: blogId
+      value: 50da28a4-de57-4748-9ab8-9615413717
+      type: path
   auth: inherit
 
 settings:

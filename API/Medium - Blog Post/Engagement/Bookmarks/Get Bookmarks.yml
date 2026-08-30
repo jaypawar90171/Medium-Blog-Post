@@ -1,0 +1,22 @@
+info:
+  name: Get Bookmarks
+  type: http
+  seq: 2
+
+http:
+  method: GET
+  url: "{{BASE_URL}}/engagement/bookmark/list?list=Reading List"
+  headers:
+    - name: Authorization
+      value: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6IjI1ZmFjOTI5LWIwYWUtNDQwMS05YzUxLTg1MDk4N2ZmMGYwYiJ9.aPCtQEcNQS8BwS8C72zyaX62KSyV2Ls_qVcVmQJtjSg
+  params:
+    - name: list
+      value: Reading List
+      type: query
+  auth: inherit
+
+settings:
+  encodeUrl: true
+  timeout: 0
+  followRedirects: true
+  maxRedirects: 5

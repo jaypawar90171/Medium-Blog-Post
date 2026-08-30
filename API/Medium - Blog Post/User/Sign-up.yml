@@ -1,0 +1,25 @@
+info:
+  name: Sign-up
+  type: http
+  seq: 2
+
+http:
+  method: POST
+  url: "{{BASE_URL}}/user/signup"
+  body:
+    type: json
+    data: |-
+      {
+        "email": "jay.pawar@gmail.com",
+        "password": "jay123",
+        "name": "Jay Pawar",
+        "username": "jay_07",
+        "bio": "Agentic AI developer, building cool things."
+      }
+  auth: inherit
+
+settings:
+  encodeUrl: true
+  timeout: 0
+  followRedirects: true
+  maxRedirects: 5

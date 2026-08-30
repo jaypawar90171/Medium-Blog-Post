@@ -1,22 +1,23 @@
 info:
-  name: Update Blog
+  name: Get All Blog
   type: http
-  seq: 5
+  seq: 2
 
 http:
-  method: PUT
-  url: "{{BASE_URL}}/blog"
+  method: GET
+  url: "{{BASE_URL}}/blog/bulk"
   headers:
     - name: Authorization
       value: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6ImI5MTU2MjRiLTViN2EtNDU3Ny1hZWZkLTVkMzAzYzQyODQ0NSJ9.1-DGwh1iTDDa5-w8GBUgLJ_WcGdNX4NRpcTi12XDYQM
-  body:
-    type: json
-    data: |-
-      {
-        "id": "b0f177e3-7edb-4a4d-83e1-f3c58c10745d",
-        "title": "How to setup prisma",
-        "content": "This is updated demo content"
-      }
+  params:
+    - name: tag
+      value: ""
+      type: query
+      disabled: true
+    - name: authorId
+      value: ""
+      type: query
+      disabled: true
   auth: inherit
 
 settings:

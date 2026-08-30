@@ -1,0 +1,22 @@
+info:
+  name: Check follow status
+  type: http
+  seq: 4
+
+http:
+  method: GET
+  url: "{{BASE_URL}}/engagement/follow/status/:userId"
+  headers:
+    - name: Authorization
+      value: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6IjI1ZmFjOTI5LWIwYWUtNDQwMS05YzUxLTg1MDk4N2ZmMGYwYiJ9.aPCtQEcNQS8BwS8C72zyaX62KSyV2Ls_qVcVmQJtjSg
+  params:
+    - name: userId
+      value: 000e4200-6c47-45bb-b670-41fbee850d11
+      type: path
+  auth: inherit
+
+settings:
+  encodeUrl: true
+  timeout: 0
+  followRedirects: true
+  maxRedirects: 5

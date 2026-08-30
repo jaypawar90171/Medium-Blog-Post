@@ -1,0 +1,28 @@
+info:
+  name: Create Blog
+  type: http
+  seq: 1
+
+http:
+  method: POST
+  url: "{{BASE_URL}}/blog"
+  headers:
+    - name: Authorization
+      value: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6IjI1ZmFjOTI5LWIwYWUtNDQwMS05YzUxLTg1MDk4N2ZmMGYwYiJ9.aPCtQEcNQS8BwS8C72zyaX62KSyV2Ls_qVcVmQJtjSg
+  body:
+    type: json
+    data: |-
+      {
+        "title": "Getting Started with Hono and Prisma",
+        "content": "Hono is a fast, lightweight web framework designed for Edge runtimes. In this tutorial, we will set up Prisma ORM to interact with our database...",
+        "summary": "A quick guide on integrating Prisma ORM with Hono for fast edge applications.",
+        "coverImage": "https://example.com/images/hono-prisma.png",
+        "tags": ["hono", "prisma", "typescript"]
+      }
+  auth: inherit
+
+settings:
+  encodeUrl: true
+  timeout: 0
+  followRedirects: true
+  maxRedirects: 5

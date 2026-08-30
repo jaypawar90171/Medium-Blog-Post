@@ -1,17 +1,17 @@
 info:
-  name: Create Blog
+  name: Sign-In
   type: http
-  seq: 3
+  seq: 1
 
 http:
   method: POST
-  url: "{{BASE_URL}}/signin"
+  url: "{{BASE_URL}}/user/signin"
   body:
     type: json
     data: |-
       {
-        "email": "jayp90171@gmail.com",
-        "password": "Jay@123"
+        "email": "alex.dev@example.com",
+        "password": "supersecretpassword123"
       }
   auth: inherit
 

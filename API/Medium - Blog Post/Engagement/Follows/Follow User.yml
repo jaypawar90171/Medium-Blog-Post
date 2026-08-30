@@ -1,0 +1,24 @@
+info:
+  name: Follow User
+  type: http
+  seq: 1
+
+http:
+  method: POST
+  url: "{{BASE_URL}}/engagement/follow"
+  headers:
+    - name: Authorization
+      value: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6IjI1ZmFjOTI5LWIwYWUtNDQwMS05YzUxLTg1MDk4N2ZmMGYwYiJ9.aPCtQEcNQS8BwS8C72zyaX62KSyV2Ls_qVcVmQJtjSg
+  body:
+    type: json
+    data: |-
+      {
+        "userId": "000e4200-6c47-45bb-b670-41fbee850d11"
+      }
+  auth: inherit
+
+settings:
+  encodeUrl: true
+  timeout: 0
+  followRedirects: true
+  maxRedirects: 5
