@@ -4,18 +4,23 @@
   "scripts": {
     "dev": "wrangler dev",
     "deploy": "wrangler deploy --minify",
-    "cf-typegen": "wrangler types --env-interface CloudflareBindings"
+    "cf-typegen": "wrangler types --env-interface CloudflareBindings",
+    "typecheck": "tsc --noEmit",
+    "build": "tsc --noEmit"
   },
   "dependencies": {
+    "@hono/zod-validator": "^0.9.0",
     "@prisma/client": "^7.10.0",
     "@prisma/extension-accelerate": "^3.0.1",
     "bcryptjs": "^3.0.3",
     "dotenv": "^17.4.2",
     "hono": "^4.13.5",
-    "prisma": "^7.10.0"
+    "prisma": "^7.10.0",
+    "zod": "^4.5.4"
   },
   "devDependencies": {
     "@types/node": "^26.3.0",
+    "typescript": "~5.9.0",
     "wrangler": "^4.110.0"
   }
 }

@@ -1,107 +1,146 @@
 import { Hono } from 'hono'
-import { PrismaClient } from '@prisma/client/edge'
-import { withAccelerate } from '@prisma/extension-accelerate'
-import { decode, sign, verify } from 'hono/jwt'
+import { sign } from 'hono/jwt'
 import bcrypt from 'bcryptjs'
-import { z } from 'zod'
 import { zValidator } from '@hono/zod-validator'
+import { prisma, type Variables } from '../lib/prisma'
+import { signupInput, signinInput, updateProfileInput } from '../lib/schemas'
+import { authMiddleware } from '../middleware/auth'
 
-const prisma = new PrismaClient({
-    accelerateUrl: process.env.DATABASE_URL,
-}).$extends(withAccelerate())
+export const userRouter = new Hono<{ Variables: Variables }>()
 
-const signupInput = z.object({
-    email: z.string().email(),
-    password: z.string().min(6),
-    name: z.string().optional(),
-    username: z.string().optional(),
-    bio: z.string().optional()
-})
+userRouter.post('/signup',
+  zValidator('json', signupInput),
+  async (c) => {
+    const body = c.req.valid('json')
+    const hashedPassword = await bcrypt.hash(body.password, 10)
 
-const signinInput = z.object({
-    email: z.string().email(),
-    password: z.string().min(6),
-})
+    const user = await prisma.user.create({
+      data: {
+        email: body.email,
+        password: hashedPassword,
+        name: body.name,
+        username: body.username,
+        bio: body.bio,
+      },
+    })
 
-export const userRouter = new Hono<{
-    Variables: {
-        userId: string
-    }
-}>()
-
-userRouter.post('/signup', zValidator('json', signupInput), async (c) => {
-    const body = await c.req.json();
-
-    const hashedPassword = await bcrypt.hash(body.password, 10);
-
-    try {
-        const user = await prisma.user.create({
-            data: {
-                email: body.email,
-                password: hashedPassword,
-            }
-        })
-        const token = await sign(
-            { id: user.id }, 
-            process.env.JWT_SECRET!, 
-            "HS256"
-        )
-
-        return c.json({
-            message: 'User created successfully',
-            token: token
-        })
-    }
-    catch (e) {
-        console.log(e)
-        return c.json({
-            message: 'User creation failed',
-            e
-        })
-    }
-})
-
-userRouter.post('/signin', zValidator('json', signinInput), async (c) => {
-    const body = await c.req.json();
-    if (!body.email || !body.password) {
-        return c.json({
-            message: 'Please provide both email and password'
-        }, 403)
-    }
-
-    let user: any = null;
-    try {
-        user = await prisma.user.findUnique({
-            where: {
-                email: body.email,
-            }
-        })
-    } catch (e) {
-        return c.json({ error: e instanceof Error ? e.message : String(e), full: String(e) }, 500)
-    }
-
-    if (!user) {
-        return c.json({
-            message: 'User not found. Please signup.'
-        }, 403)
-    }
-
-    // Compare entered password with hashed password in DB
-    const isPasswordValid = await bcrypt.compare(
-        body.password,
-        user.password
-    );
-
-    if (!isPasswordValid) {
-        return c.json({
-            message: 'Incorrect password.'
-        }, 403)
-    }
-
-    const token = await sign({ id: user.id }, process.env.JWT_SECRET!, "HS256")
+    const token = await sign({ id: user.id }, process.env.JWT_SECRET!, 'HS256')
 
     return c.json({
-        message: 'User signed in successfully',
-        token: token
+      message: 'User created successfully',
+      token,
+      user: {
+        id: user.id,
+        email: user.email,
+        name: user.name,
+        username: user.username,
+      },
+    }, 201)
+  }
+)
+
+userRouter.post('/signin',
+  zValidator('json', signinInput),
+  async (c) => {
+    const body = c.req.valid('json')
+
+    const user = await prisma.user.findUnique({ where: { email: body.email } })
+    if (!user) {
+      return c.json({ message: 'User not found. Please signup.' }, 404)
+    }
+
+    const isPasswordValid = await bcrypt.compare(body.password, user.password)
+    if (!isPasswordValid) {
+      return c.json({ message: 'Incorrect password.' }, 401)
+    }
+
+    const token = await sign({ id: user.id }, process.env.JWT_SECRET!, 'HS256')
+
+    return c.json({
+      message: 'User signed in successfully',
+      token,
     })
+  }
+)
+
+userRouter.get('/me', authMiddleware, async (c) => {
+  const userId = c.get('userId')
+  const user = await prisma.user.findUnique({
+    where: { id: userId },
+    select: {
+      id: true,
+      email: true,
+      username: true,
+      name: true,
+      bio: true,
+      avatar: true,
+      createdAt: true,
+      _count: {
+        select: {
+          posts: true,
+          followers: true,
+          following: true,
+        },
+      },
+    },
+  })
+
+  if (!user) {
+    return c.json({ error: 'User not found' }, 404)
+  }
+
+  return c.json({ user })
+})
+
+userRouter.put('/me',
+  authMiddleware,
+  zValidator('json', updateProfileInput),
+  async (c) => {
+    const userId = c.get('userId')
+    const body = c.req.valid('json')
+
+    const user = await prisma.user.update({
+      where: { id: userId },
+      data: body,
+      select: {
+        id: true,
+        email: true,
+        username: true,
+        name: true,
+        bio: true,
+        avatar: true,
+        updatedAt: true,
+      },
+    })
+
+    return c.json({ message: 'Profile updated', user })
+  }
+)
+
+userRouter.get('/:id', async (c) => {
+  const id = c.req.param('id')
+  const user = await prisma.user.findUnique({
+    where: { id },
+    select: {
+      id: true,
+      username: true,
+      name: true,
+      bio: true,
+      avatar: true,
+      createdAt: true,
+      _count: {
+        select: {
+          posts: true,
+          followers: true,
+          following: true,
+        },
+      },
+    },
+  })
+
+  if (!user) {
+    return c.json({ error: 'User not found' }, 404)
+  }
+
+  return c.json({ user })
 })

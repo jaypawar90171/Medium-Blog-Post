@@ -13,22 +13,132 @@ model Test {
 }
 
 model User {
-  id        String   @id @default(uuid())  
+  id        String    @id @default(uuid())
   username  String?   @unique
   password  String
   name      String?
-  email     String   @unique
+  email     String    @unique
   bio       String?
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-  posts     Post[]
+  avatar    String?
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+
+  posts       Post[]
+  comments    Comment[]
+  claps       Clap[]
+  bookmarks   Bookmark[]
+  following   Follow[]   @relation("UserFollowing")
+  followers   Follow[]   @relation("UserFollowers")
+  followedTag UserTag[]
 }
 
 model Post {
-  id        String   @id @default(uuid())
-  title     String
-  content   String
-  published Boolean  @default(false)
+  id          String   @id @default(uuid())
+  title       String
+  content     String
+  summary     String?
+  coverImage  String?
+  published   Boolean  @default(false)
+  readingTime Int      @default(0)
+  views       Int      @default(0)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @default(now()) @updatedAt
+
   author    User     @relation(fields: [authorId], references: [id])
   authorId  String
+
+  comments  Comment[]
+  claps     Clap[]
+  bookmarks Bookmark[]
+  tags      PostTag[]
+  @@index([authorId])
+  @@index([published, createdAt])
+}
+
+model Comment {
+  id        String   @id @default(uuid())
+  content   String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  post   Post   @relation(fields: [postId], references: [id], onDelete: Cascade)
+  postId String
+
+  author   User     @relation(fields: [authorId], references: [id])
+  authorId String
+
+  parent   Comment?  @relation("CommentReply", fields: [parentId], references: [id], onDelete: Cascade)
+  parentId String?
+  replies  Comment[] @relation("CommentReply")
+
+  @@index([postId])
+  @@index([authorId])
+}
+
+model Clap {
+  id        String   @id @default(uuid())
+  count     Int      @default(1)
+  createdAt DateTime @default(now())
+
+  post   Post   @relation(fields: [postId], references: [id], onDelete: Cascade)
+  postId String
+
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  userId String
+
+  @@unique([postId, userId])
+}
+
+model Follow {
+  id          String   @id @default(uuid())
+  createdAt   DateTime @default(now())
+
+  follower   User   @relation("UserFollowing", fields: [followerId], references: [id], onDelete: Cascade)
+  followerId String
+
+  following   User   @relation("UserFollowers", fields: [followingId], references: [id], onDelete: Cascade)
+  followingId String
+
+  @@unique([followerId, followingId])
+}
+
+model Bookmark {
+  id        String   @id @default(uuid())
+  list      String   @default("default")
+  createdAt DateTime @default(now())
+
+  post   Post   @relation(fields: [postId], references: [id], onDelete: Cascade)
+  postId String
+
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  userId String
+
+  @@unique([postId, userId, list])
+}
+
+model Tag {
+  id    String @id @default(uuid())
+  name  String @unique
+  posts PostTag[]
+  users UserTag[]
+}
+
+model PostTag {
+  post   Post @relation(fields: [postId], references: [id], onDelete: Cascade)
+  postId String
+
+  tag   Tag  @relation(fields: [tagId], references: [id], onDelete: Cascade)
+  tagId String
+
+  @@id([postId, tagId])
+}
+
+model UserTag {
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  userId String
+
+  tag  Tag  @relation(fields: [tagId], references: [id], onDelete: Cascade)
+  tagId String
+
+  @@id([userId, tagId])
 }
