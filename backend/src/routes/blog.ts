@@ -3,10 +3,23 @@ import { PrismaClient } from '@prisma/client/edge'
 import { withAccelerate } from '@prisma/extension-accelerate'
 import { decode, sign, verify } from 'hono/jwt'
 import bcrypt from 'bcryptjs'
+import {z} from 'zod'
+import {zValidator} from '@hono/zod-validator'
 
 const prisma = new PrismaClient({
     accelerateUrl: process.env.DATABASE_URL,
 }).$extends(withAccelerate())
+
+const createBlogInput = z.object({
+    title: z.string(),
+    content: z.string()
+})
+
+const updateBlogInput = z.object({
+    id: z.string(),
+    title: z.string().optional(),
+    content: z.string().optional()
+})
 
 export const blogRouter = new Hono<{
     Variables: {
@@ -52,7 +65,7 @@ blogRouter.get('/:id', async (c) => {
     }
 })
 
-blogRouter.post('/', async (c) => {
+blogRouter.post('/', zValidator('json', createBlogInput), async (c) => {
     const userId = c.get('userId');
     const body = await c.req.json();
 
@@ -77,7 +90,7 @@ blogRouter.post('/', async (c) => {
     }
 })
 
-blogRouter.put('/', async (c) => {
+blogRouter.put('/', zValidator('json', updateBlogInput), async (c) => {
     const userId = c.get('userId');
     const body = await c.req.json();
 

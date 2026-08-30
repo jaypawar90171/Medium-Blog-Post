@@ -18,7 +18,7 @@ const app = new Hono<{
 
 // auth middleware
 app.use('/api/v1/blog/*', async(c, next) => {
-  const jwt = c.req.header('Authorization');
+  const jwt = c.req.header('Authorization') || "";
 
   if (!jwt) {
     c.status(401)
