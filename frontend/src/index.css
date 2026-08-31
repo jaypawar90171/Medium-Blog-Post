@@ -1,3 +1,139 @@
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
+
+:root {
+  --font-serif: "Source Serif 4", Georgia, serif;
+  --font-sans: "Inter", -apple-system, sans-serif;
+
+  --color-paper: 251 249 244;
+  --color-paper-dim: 242 239 230;
+  --color-ink: 32 29 24;
+  --color-ink-soft: 74 69 61;
+  --color-meta: 138 133 120;
+  --color-rule: 220 215 201;
+  --color-red: 193 68 14;
+  --color-red-dim: 168 58 11;
+  --color-sage: 111 125 95;
+}
+
+.dark {
+  --color-paper: 23 21 18;
+  --color-paper-dim: 32 29 24;
+  --color-ink: 242 239 230;
+  --color-ink-soft: 184 176 162;
+  --color-meta: 127 120 104;
+  --color-rule: 53 48 42;
+  --color-red: 224 101 42;
+  --color-red-dim: 207 90 34;
+  --color-sage: 154 176 138;
+}
+
+html {
+  scroll-behavior: smooth;
+}
+
+body {
+  background-color: rgb(var(--color-paper));
+  color: rgb(var(--color-ink));
+  font-family: var(--font-sans);
+  -webkit-font-smoothing: antialiased;
+  transition: background-color 0.4s ease, color 0.4s ease;
+}
+
+::selection {
+  background-color: rgb(var(--color-red));
+  color: rgb(var(--color-paper));
+}
+
+/* Smooth color transitions for elements using theme tokens */
+html.dark *,
+html.dark *::before,
+html.dark *::after {
+  transition-property: background-color, border-color, color, box-shadow;
+  transition-duration: 0.3s;
+  transition-timing-function: ease;
+}
+
+/* ---------- Custom cursor ---------- */
+.has-cursor {
+  cursor: none;
+}
+.has-cursor a,
+.has-cursor button,
+.has-cursor [role="button"],
+.has-cursor input,
+.has-cursor textarea,
+.has-cursor select,
+.has-cursor label {
+  cursor: none;
+}
+
+.cursor-dot {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 6px;
+  height: 6px;
+  border-radius: 9999px;
+  background-color: rgb(var(--color-red));
+  pointer-events: none;
+  z-index: 9999;
+  margin-left: -3px;
+  margin-top: -3px;
+  transition: background-color 0.2s ease;
+}
+
+.cursor-ring {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 36px;
+  height: 36px;
+  border-radius: 9999px;
+  border: 1.5px solid rgb(var(--color-red));
+  pointer-events: none;
+  z-index: 9998;
+  margin-left: -18px;
+  margin-top: -18px;
+  transition: width 0.25s ease, height 0.25s ease, margin 0.25s ease,
+    background-color 0.25s ease, border-color 0.25s ease, opacity 0.25s ease;
+}
+
+.cursor-ring--hover {
+  width: 56px;
+  height: 56px;
+  margin-left: -28px;
+  margin-top: -28px;
+  background-color: rgb(var(--color-red) / 0.14);
+  border-color: rgb(var(--color-red));
+}
+
+.cursor-ring--down {
+  width: 26px;
+  height: 26px;
+  margin-left: -13px;
+  margin-top: -13px;
+  opacity: 0.9;
+}
+
+@media (max-width: 767px) {
+  .cursor-dot,
+  .cursor-ring {
+    display: none;
+  }
+  .has-cursor {
+    cursor: auto;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
