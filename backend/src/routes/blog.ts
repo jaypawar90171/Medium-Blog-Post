@@ -141,19 +141,27 @@ blogRouter.get('/:id', zValidator('param', blogIdParams), async (c) => {
     return c.json({ error: 'Blog not found' }, 404)
   }
 
-  const [clapped] = await Promise.all([
+  const [clapped, userBookmarks] = await Promise.all([
     prisma.clap.findUnique({
       where: { postId_userId: { postId: id, userId } },
       select: { count: true },
+    }),
+    prisma.bookmark.findMany({
+      where: { postId: id, userId },
+      select: { list: true },
     }),
   ])
 
   await prisma.post.update({ where: { id }, data: { views: { increment: 1 } } })
 
+  const bookmarkedLists = userBookmarks.map((b) => (b.list === 'default' ? 'Reading list' : b.list))
+
   return c.json({
     blog: {
       ...blog,
       clapsByUser: clapped?.count ?? 0,
+      isBookmarked: bookmarkedLists.length > 0,
+      bookmarkedLists,
     },
   })
 })

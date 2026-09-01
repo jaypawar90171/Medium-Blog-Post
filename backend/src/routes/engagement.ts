@@ -188,6 +188,7 @@ engagementRouter.get('/follow/status/:userId', async (c) => {
 engagementRouter.post('/bookmark', zValidator('json', bookmarkInput), async (c) => {
   const userId = c.get('userId')
   const body = c.req.valid('json')
+  const listName = body.list || 'Reading list'
 
   const post = await prisma.post.findUnique({ where: { id: body.postId } })
   if (!post) {
@@ -196,29 +197,79 @@ engagementRouter.post('/bookmark', zValidator('json', bookmarkInput), async (c) 
 
   await prisma.bookmark.upsert({
     where: {
-      postId_userId_list: { postId: body.postId, userId, list: body.list },
+      postId_userId_list: { postId: body.postId, userId, list: listName },
     },
-    create: { postId: body.postId, userId, list: body.list },
+    create: { postId: body.postId, userId, list: listName },
     update: {},
   })
 
-  return c.json({ message: 'Bookmarked' }, 201)
+  return c.json({ message: 'Bookmarked', list: listName }, 201)
 })
 
 engagementRouter.delete('/bookmark/:id', zValidator('param', blogIdParams), async (c) => {
   const { id } = c.req.valid('param')
   const userId = c.get('userId')
+  const list = c.req.query('list')
 
-  await prisma.bookmark.deleteMany({ where: { postId: id, userId } })
+  if (list) {
+    await prisma.bookmark.deleteMany({
+      where: { postId: id, userId, list },
+    })
+  } else {
+    await prisma.bookmark.deleteMany({
+      where: { postId: id, userId },
+    })
+  }
   return c.json({ message: 'Bookmark removed' })
+})
+
+// Return all distinct bookmark lists for the current user
+engagementRouter.get('/bookmark/lists', async (c) => {
+  const userId = c.get('userId')
+  const userBookmarks = await prisma.bookmark.findMany({
+    where: { userId },
+    select: { list: true },
+    distinct: ['list'],
+  })
+
+  const listSet = new Set<string>(['Reading list'])
+  userBookmarks.forEach((b) => {
+    if (b.list && b.list !== 'default') listSet.add(b.list)
+  })
+
+  return c.json({ lists: Array.from(listSet) })
+})
+
+// Return bookmark status and lists for a specific post
+engagementRouter.get('/bookmark/status/:id', zValidator('param', blogIdParams), async (c) => {
+  const { id } = c.req.valid('param')
+  const userId = c.get('userId')
+
+  const bookmarks = await prisma.bookmark.findMany({
+    where: { postId: id, userId },
+    select: { list: true },
+  })
+
+  const lists = bookmarks.map((b) => (b.list === 'default' ? 'Reading list' : b.list))
+
+  return c.json({
+    isBookmarked: lists.length > 0,
+    lists,
+  })
 })
 
 engagementRouter.get('/bookmark/list', async (c) => {
   const userId = c.get('userId')
-  const list = c.req.query('list') || 'default'
+  const list = c.req.query('list') || 'Reading list'
 
   const bookmarks = await prisma.bookmark.findMany({
-    where: { userId, list },
+    where: {
+      userId,
+      OR: [
+        { list },
+        ...(list === 'Reading list' ? [{ list: 'default' }] : []),
+      ],
+    },
     include: {
       post: {
         select: {

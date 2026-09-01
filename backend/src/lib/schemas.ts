@@ -64,5 +64,5 @@ export const followInput = z.object({
 
 export const bookmarkInput = z.object({
   postId: z.string(),
-  list: z.string().min(1).default('default'),
+  list: z.string().min(1).default('Reading list'),
 })
