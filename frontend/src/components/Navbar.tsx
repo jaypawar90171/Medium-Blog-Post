@@ -2,12 +2,14 @@ import { useEffect, useState } from "react";
 import { motion } from "framer-motion";
 import { Sun, Moon } from "lucide-react";
 import { useTheme } from "../context/ThemeContext";
+import { useNavigate } from "react-router-dom";
 
 const NAV_LINKS = ["Discover", "Write", "Membership"];
 
 export default function Navbar() {
     const [scrolled, setScrolled] = useState(false);
     const { theme, toggleTheme } = useTheme();
+    const navigate = useNavigate();
 
     useEffect(() => {
         const onScroll = () => setScrolled(window.scrollY > 8);
@@ -60,21 +62,24 @@ export default function Navbar() {
                             {theme === "dark" ? <Sun size={19} /> : <Moon size={19} />}
                         </motion.span>
                     </motion.button>
-                    <a
-                        href="#"
+
+                    <motion.button
+                        onClick={() => navigate("/signin")}
+                        whileHover={{ scale: 1.03 }}
+                        whileTap={{ scale: 0.97 }}
                         className="hidden sm:inline text-[15px] text-ink-soft hover:text-ink transition-colors"
                     >
                         Sign in
-                    </a>
+                    </motion.button>
 
-                    <motion.a
-                        href="#"
+                    <motion.button
+                        onClick={() => navigate("/signup")}
                         whileHover={{ scale: 1.03 }}
                         whileTap={{ scale: 0.97 }}
                         className="text-[15px] text-paper bg-ink hover:bg-red transition-colors px-4 py-2 rounded-full"
                     >
-                        Start writing
-                    </motion.a>
+                        Get Started
+                    </motion.button>
                 </div>
             </nav >
         </motion.header >

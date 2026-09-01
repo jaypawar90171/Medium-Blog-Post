@@ -1,0 +1,23 @@
+<svg width="1200" height="1600" viewBox="0 0 1200 1600" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <rect width="1200" height="1600" fill="#201d18"/>
+  <circle cx="150" cy="200" r="320" fill="#c1440e" opacity="0.22"/>
+  <circle cx="1050" cy="1400" r="420" fill="#6f7d5f" opacity="0.2"/>
+  <circle cx="900" cy="300" r="180" fill="#c1440e" opacity="0.12"/>
+  <g opacity="0.08" stroke="#fbf9f4">
+    <line x1="1200" y1="100" x2="0" y2="100"/>
+    <line x1="1200" y1="250" x2="0" y2="250"/>
+    <line x1="1200" y1="400" x2="0" y2="400"/>
+  </g>
+  <g transform="translate(120,360)">
+    <text font-family="Georgia, serif" font-size="120" fill="#c1440e">"</text>
+    <text font-family="Georgia, serif" font-size="64" fill="#fbf9f4" y="160">Your words deserve</text>
+    <text font-family="Georgia, serif" font-size="64" fill="#fbf9f4" y="250">a real home. Write the</text>
+    <text font-family="Georgia, serif" font-size="64" fill="#fbf9f4" y="340">thing only you could write.</text>
+  </g>
+  <rect x="120" y="900" width="560" height="2" fill="#c1440e" opacity="0.5"/>
+  <g transform="translate(120,940)">
+    <rect width="52" height="52" rx="26" fill="#c1440e"/>
+    <text font-family="Georgia, serif" font-size="26" fill="#fbf9f4" x="13" y="35">J</text>
+    <text font-family="Georgia, serif" font-size="30" fill="#fbf9f4" x="80" y="38">The Journal</text>
+  </g>
+</svg>
