@@ -5,6 +5,7 @@ import { ThemeProvider } from './context/ThemeContext';
 import SignIn from './screens/SignIn';
 import Signup from './screens/Signup';
 import Home from './screens/Home';
+import BlogDetail from './screens/BlogDetail';
 
 const App = () => {
   return (
@@ -16,6 +17,7 @@ const App = () => {
           <Route path="/signin" element={<SignIn />} />
           <Route path="/signup" element={<Signup />} />
           <Route path="/home" element={<Home />} />
+          <Route path="/blog/:id" element={<BlogDetail />} />
         </Routes>
       </Router>
     </ThemeProvider>

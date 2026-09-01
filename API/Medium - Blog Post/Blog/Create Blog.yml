@@ -13,11 +13,11 @@ http:
     type: json
     data: |-
       {
-        "title": "Getting Started with Hono and Prisma",
-        "content": "Hono is a fast, lightweight web framework designed for Edge runtimes. In this tutorial, we will set up Prisma ORM to interact with our database...",
-        "summary": "A quick guide on integrating Prisma ORM with Hono for fast edge applications.",
-        "coverImage": "https://example.com/images/hono-prisma.png",
-        "tags": ["hono", "prisma", "typescript"]
+        "title": "Mastering React Performance: 7 Techniques Every Developer Should Know",
+        "content": "React applications often start out fast, but as features grow, performance issues can sneak in. Slow renders, large bundles, and unnecessary re-renders can make an app feel sluggish. The good news is that most performance problems have straightforward solutions.\n\nThe first step is measuring before optimizing. Use React DevTools Profiler and Chrome Performance tools to identify components that render too often or take too long. Optimizing without profiling usually wastes time.\n\nOne of the most common issues is unnecessary re-rendering. Wrap expensive components with React.memo when their props rarely change, and use useMemo for costly calculations like filtering or sorting large datasets. Similarly, useCallback helps maintain stable function references when passing callbacks to child components.\n\nAnother major improvement comes from code splitting. Instead of shipping your entire application in one JavaScript bundle, lazy-load routes and heavy components with React.lazy and Suspense. This reduces the initial download size and improves page load speed.\n\nLarge lists are another hidden performance killer. Rendering hundreds or thousands of DOM nodes at once is expensive. Libraries like react-window or react-virtualized only render visible items, making scrolling much smoother.\n\nImages also play a huge role in performance. Compress images, use modern formats like WebP or AVIF, and lazy-load off-screen images with the loading=\"lazy\" attribute.\n\nFinally, monitor Core Web Vitals such as Largest Contentful Paint (LCP), Interaction to Next Paint (INP), and Cumulative Layout Shift (CLS). These metrics help you understand how users experience your application in the real world.\n\nPerformance optimization is not about adding memoization everywhere. It's about measuring, identifying bottlenecks, and applying the right optimization at the right place.",
+        "summary": "Learn seven practical techniques to improve React app performance, from profiling and memoization to code splitting, virtualization, and image optimization.",
+        "coverImage": "https://images.unsplash.com/photo-1516321318423-f06f85e504b3",
+        "tags": ["react", "performance", "typescript", "frontend", "web-development"]
       }
   auth: inherit
 
