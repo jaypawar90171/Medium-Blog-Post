@@ -278,48 +278,88 @@ export const fetchUserClapsAtom = atom(
 
 // ---- Bookmarks ----
 
-// bookmark a blog
+// bookmark a blog in a specific list
 export const bookmarkBlogAtom = atom(
   null,
-  async (get, set, { postId, name }: { postId: string, name: string }) => {
+  async (get, set, { postId, list = 'Reading list' }: { postId: string; list?: string }) => {
     const token = get(tokenAtom)
     const res = await authedPost(
       `${API_BASE}/bookmark`,
-      { postId, name },
+      { postId, list },
       token,
     )
-    const data = await handleResponse<BookmarkResponse>(res)
-    console.log("bookmark count:", data)
+    const data = await handleResponse<{ message: string; list: string }>(res)
+
+    // Update bookmark count in local feed if present
+    const blogs = get(blogsAtom)
+    set(
+      blogsAtom,
+      blogs.map((b) =>
+        b.id === postId
+          ? { ...b, _count: { ...b._count, bookmarks: (b._count?.bookmarks || 0) + 1 } }
+          : b,
+      ),
+    )
+
     return data
   },
 )
 
-// remove bookmark from a blog
+// remove bookmark from a blog (optionally for a specific list)
 export const removeBookmarkAtom = atom(
   null,
-  async (get, set, { postId }: { postId: string }) => {
+  async (get, set, { postId, list }: { postId: string; list?: string }) => {
     const token = get(tokenAtom)
-    const res = await authedDelete(
-      `${API_BASE}/bookmark/remove/${postId}`,
-      token,
+    const url = `${API_BASE}/bookmark/${postId}${list ? `?list=${encodeURIComponent(list)}` : ''}`
+    const res = await authedDelete(url, token)
+    const data = await handleResponse<{ message: string }>(res)
+
+    // Decrement bookmark count in local feed if present
+    const blogs = get(blogsAtom)
+    set(
+      blogsAtom,
+      blogs.map((b) =>
+        b.id === postId
+          ? { ...b, _count: { ...b._count, bookmarks: Math.max(0, (b._count?.bookmarks || 0) - 1) } }
+          : b,
+      ),
     )
-    const data = await handleResponse<BookmarkResponse>(res)
-    console.log("remove bookmark count:", data)
+
     return data
   },
 )
 
-// returns list of bookmarked blogs
-export const fetchBookmarkStatusAtom = atom(
+// returns all distinct bookmark list names for the current user
+export const fetchBookmarkListsAtom = atom(
   null,
-  async (get, set, { name }: { name: string }) => {
+  async (get) => {
+    const token = get(tokenAtom)
+    if (!token) return { lists: ['Reading list'] }
+    const res = await authedFetch(`${API_BASE}/bookmark/lists`, token)
+    return await handleResponse<{ lists: string[] }>(res)
+  },
+)
+
+// returns bookmark status and saved lists for a specific post
+export const fetchPostBookmarkStatusAtom = atom(
+  null,
+  async (get, _set, { postId }: { postId: string }) => {
+    const token = get(tokenAtom)
+    if (!token) return { isBookmarked: false, lists: [] }
+    const res = await authedFetch(`${API_BASE}/bookmark/status/${postId}`, token)
+    return await handleResponse<{ isBookmarked: boolean; lists: string[] }>(res)
+  },
+)
+
+// returns list of bookmarked blogs for a list
+export const fetchBookmarkListPostsAtom = atom(
+  null,
+  async (get, _set, { list = 'Reading list' }: { list?: string } = {}) => {
     const token = get(tokenAtom)
     const res = await authedFetch(
-      `${API_BASE}/bookmark/list?name=${name}`,
+      `${API_BASE}/bookmark/list?list=${encodeURIComponent(list)}`,
       token,
     )
-    const data = await handleResponse<BookmarkResponse>(res)
-    console.log("bookmark list:", data)
-    return data
+    return await handleResponse<BookmarkResponse>(res)
   },
 )

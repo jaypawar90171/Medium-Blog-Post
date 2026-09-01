@@ -25,6 +25,7 @@ import {
 } from '../store/engagement'
 import type { Comment } from '../store/engagement'
 import { userAtom, tokenAtom } from '../store/auth'
+import { showToastAtom } from '../store/ui'
 
 interface CommentsDrawerProps {
   isOpen: boolean
@@ -78,6 +79,7 @@ export default function CommentsDrawer({
   const addComment = useSetAtom(addCommentAtom)
   const updateComment = useSetAtom(updateCommentAtom)
   const deleteComment = useSetAtom(deleteCommentAtom)
+  const showToast = useSetAtom(showToastAtom)
 
   const user = useAtomValue(userAtom)
   const token = useAtomValue(tokenAtom)
@@ -152,6 +154,7 @@ export default function CommentsDrawer({
       setContent('')
       setIsFocused(false)
       onCommentCountChange?.(1)
+      showToast({ message: 'Response published', type: 'success' })
     } catch (err) {
       setSubmitError((err as Error).message || 'Failed to post comment')
     } finally {
@@ -172,8 +175,12 @@ export default function CommentsDrawer({
       await updateComment({ id: commentId, content: editContent.trim() })
       setEditingId(null)
       setEditContent('')
+      showToast({ message: 'Response updated', type: 'success' })
     } catch (err) {
-      alert((err as Error).message || 'Failed to update response')
+      showToast({
+        message: (err as Error).message || 'Failed to update response',
+        type: 'error',
+      })
     } finally {
       setIsUpdating(false)
     }
@@ -188,8 +195,12 @@ export default function CommentsDrawer({
     try {
       await deleteComment({ id: commentId, postId })
       onCommentCountChange?.(-1)
+      showToast({ message: 'Response deleted', type: 'info' })
     } catch (err) {
-      alert((err as Error).message || 'Failed to delete response')
+      showToast({
+        message: (err as Error).message || 'Failed to delete response',
+        type: 'error',
+      })
     } finally {
       setDeletingId(null)
     }

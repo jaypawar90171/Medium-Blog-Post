@@ -9,19 +9,16 @@ import {
   Eye,
   Loader2,
   Share2,
-  Check,
 } from 'lucide-react'
 import { useAtomValue, useSetAtom } from 'jotai'
 import { fetchBlogByIdAtom } from '../store/blog'
 import type { BlogDetail } from '../store/blog'
 import { tokenAtom } from '../store/auth'
-import {
-  clapBlogAtom,
-  bookmarkBlogAtom,
-  removeBookmarkAtom,
-} from '../store/engagement'
+import { clapBlogAtom } from '../store/engagement'
+import { showToastAtom } from '../store/ui'
 import HomeNavbar from '../components/HomeNavbar'
 import CommentsDrawer from '../components/CommentsDrawer'
+import BookmarkModal from '../components/BookmarkModal'
 
 export default function BlogDetailScreen() {
   const { id } = useParams<{ id: string }>()
@@ -30,8 +27,7 @@ export default function BlogDetailScreen() {
 
   const fetchBlog = useSetAtom(fetchBlogByIdAtom)
   const clap = useSetAtom(clapBlogAtom)
-  const bookmark = useSetAtom(bookmarkBlogAtom)
-  const removeBookmark = useSetAtom(removeBookmarkAtom)
+  const showToast = useSetAtom(showToastAtom)
 
   const [blog, setBlog] = useState<BlogDetail | null>(null)
   const [loading, setLoading] = useState(true)
@@ -39,9 +35,8 @@ export default function BlogDetailScreen() {
 
   // Engagement states
   const [commentsOpen, setCommentsOpen] = useState(false)
+  const [bookmarkModalOpen, setBookmarkModalOpen] = useState(false)
   const [isClapping, setIsClapping] = useState(false)
-  const [isBookmarked, setIsBookmarked] = useState(false)
-  const [copiedLink, setCopiedLink] = useState(false)
 
   useEffect(() => {
     let cancelled = false
@@ -68,7 +63,22 @@ export default function BlogDetailScreen() {
       return
     }
     if (!blog || isClapping) return
+
     setIsClapping(true)
+
+    // Immediate optimistic update
+    const prevClaps = blog._count.claps
+    const prevUserClaps = blog.clapsByUser
+    setBlog((prev) =>
+      prev
+        ? {
+            ...prev,
+            clapsByUser: prev.clapsByUser + 1,
+            _count: { ...prev._count, claps: prev._count.claps + 1 },
+          }
+        : prev,
+    )
+
     try {
       const res = await clap({ postId: blog.id, count: 1 })
       setBlog((prev) =>
@@ -80,58 +90,63 @@ export default function BlogDetailScreen() {
             }
           : prev,
       )
+      showToast({
+        message: `Clapped for this story (👏 ${res.totalClaps})`,
+        type: 'success',
+      })
     } catch (err) {
-      console.error('Failed to clap:', err)
+      // Rollback on error
+      setBlog((prev) =>
+        prev
+          ? {
+              ...prev,
+              clapsByUser: prevUserClaps,
+              _count: { ...prev._count, claps: prevClaps },
+            }
+          : prev,
+      )
+      showToast({
+        message: (err as Error).message || 'Failed to clap',
+        type: 'error',
+      })
     } finally {
       setIsClapping(false)
     }
   }
 
-  const handleBookmarkToggle = async () => {
+  const handleBookmarkClick = () => {
     if (!token) {
       navigate('/signin')
       return
     }
-    if (!blog) return
-    try {
-      if (isBookmarked) {
-        await removeBookmark({ postId: blog.id })
-        setIsBookmarked(false)
-        setBlog((prev) =>
-          prev
-            ? {
-                ...prev,
-                _count: {
-                  ...prev._count,
-                  bookmarks: Math.max(0, prev._count.bookmarks - 1),
-                },
-              }
-            : prev,
-        )
-      } else {
-        await bookmark({ postId: blog.id, name: 'Reading List' })
-        setIsBookmarked(true)
-        setBlog((prev) =>
-          prev
-            ? {
-                ...prev,
-                _count: {
-                  ...prev._count,
-                  bookmarks: prev._count.bookmarks + 1,
-                },
-              }
-            : prev,
-        )
+    setBookmarkModalOpen(true)
+  }
+
+  const handleBookmarkStatusChange = (
+    isBookmarked: boolean,
+    savedLists: string[],
+    delta: number,
+  ) => {
+    setBlog((prev) => {
+      if (!prev) return prev
+      return {
+        ...prev,
+        isBookmarked,
+        bookmarkedLists: savedLists,
+        _count: {
+          ...prev._count,
+          bookmarks: Math.max(0, (prev._count?.bookmarks || 0) + delta),
+        },
       }
-    } catch (err) {
-      console.error('Failed to toggle bookmark:', err)
-    }
+    })
   }
 
   const handleShare = () => {
     navigator.clipboard.writeText(window.location.href)
-    setCopiedLink(true)
-    setTimeout(() => setCopiedLink(false), 2000)
+    showToast({
+      message: 'Story link copied to clipboard',
+      type: 'success',
+    })
   }
 
   const handleCommentCountChange = (delta: number) => {
@@ -148,6 +163,7 @@ export default function BlogDetailScreen() {
   }
 
   const authorName = blog?.author.name || blog?.author.username || 'Anonymous'
+  const isBookmarked = Boolean(blog?.isBookmarked || (blog?.bookmarkedLists && blog.bookmarkedLists.length > 0))
 
   if (loading) {
     return (
@@ -275,15 +291,15 @@ export default function BlogDetailScreen() {
               <div className="flex items-center gap-3">
                 {/* Bookmark */}
                 <button
-                  onClick={handleBookmarkToggle}
+                  onClick={handleBookmarkClick}
                   className={`p-1.5 rounded-full hover:bg-paper-dim hover:text-ink transition-colors ${
-                    isBookmarked ? 'text-ink fill-ink' : ''
+                    isBookmarked ? 'text-red fill-red' : ''
                   }`}
-                  title={isBookmarked ? 'Saved' : 'Save story'}
+                  title={isBookmarked ? 'Saved to list' : 'Save to list'}
                 >
                   <Bookmark
                     size={17}
-                    className={isBookmarked ? 'fill-current' : ''}
+                    className={isBookmarked ? 'fill-red text-red' : ''}
                   />
                 </button>
 
@@ -293,16 +309,7 @@ export default function BlogDetailScreen() {
                   className="p-1.5 rounded-full hover:bg-paper-dim hover:text-ink transition-colors relative"
                   title="Share story"
                 >
-                  {copiedLink ? (
-                    <Check size={17} className="text-emerald-600" />
-                  ) : (
-                    <Share2 size={17} />
-                  )}
-                  {copiedLink && (
-                    <span className="absolute -top-7 left-1/2 -translate-x-1/2 px-2 py-0.5 bg-ink text-paper text-[11px] rounded shadow whitespace-nowrap">
-                      Link copied!
-                    </span>
-                  )}
+                  <Share2 size={17} />
                 </button>
               </div>
             </div>
@@ -360,15 +367,15 @@ export default function BlogDetailScreen() {
 
             <div className="flex items-center gap-3">
               <button
-                onClick={handleBookmarkToggle}
+                onClick={handleBookmarkClick}
                 className={`p-1.5 rounded-full hover:bg-paper-dim hover:text-ink transition-colors ${
-                  isBookmarked ? 'text-ink' : ''
+                  isBookmarked ? 'text-red fill-red' : ''
                 }`}
-                title={isBookmarked ? 'Saved' : 'Save story'}
+                title={isBookmarked ? 'Saved to list' : 'Save to list'}
               >
                 <Bookmark
                   size={17}
-                  className={isBookmarked ? 'fill-current' : ''}
+                  className={isBookmarked ? 'fill-red text-red' : ''}
                 />
               </button>
 
@@ -377,16 +384,7 @@ export default function BlogDetailScreen() {
                 className="p-1.5 rounded-full hover:bg-paper-dim hover:text-ink transition-colors relative"
                 title="Share story"
               >
-                {copiedLink ? (
-                  <Check size={17} className="text-emerald-600" />
-                ) : (
-                  <Share2 size={17} />
-                )}
-                {copiedLink && (
-                  <span className="absolute -top-7 left-1/2 -translate-x-1/2 px-2 py-0.5 bg-ink text-paper text-[11px] rounded shadow whitespace-nowrap">
-                    Link copied!
-                  </span>
-                )}
+                <Share2 size={17} />
               </button>
             </div>
           </div>
@@ -399,6 +397,15 @@ export default function BlogDetailScreen() {
         onClose={() => setCommentsOpen(false)}
         postId={blog.id}
         onCommentCountChange={handleCommentCountChange}
+      />
+
+      {/* Bookmark Lists Modal */}
+      <BookmarkModal
+        isOpen={bookmarkModalOpen}
+        onClose={() => setBookmarkModalOpen(false)}
+        postId={blog.id}
+        initialBookmarkedLists={blog.bookmarkedLists || []}
+        onBookmarkStatusChange={handleBookmarkStatusChange}
       />
     </div>
   )

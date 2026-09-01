@@ -34,6 +34,8 @@ export interface Blog {
 
 export interface BlogDetail extends Blog {
   clapsByUser: number
+  isBookmarked?: boolean
+  bookmarkedLists?: string[]
 }
 
 export interface Pagination {

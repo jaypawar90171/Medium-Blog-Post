@@ -6,11 +6,13 @@ import SignIn from './screens/SignIn';
 import Signup from './screens/Signup';
 import Home from './screens/Home';
 import BlogDetail from './screens/BlogDetail';
+import Toast from './components/Toast';
 
 const App = () => {
   return (
     <ThemeProvider>
       <Cursor />
+      <Toast />
       <Router>
         <Routes>
           <Route path="/" element={<Landing />} />
