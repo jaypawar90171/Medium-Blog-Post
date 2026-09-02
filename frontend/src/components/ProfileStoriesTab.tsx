@@ -10,6 +10,7 @@ import {
   Clock,
 } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
+import { plainExcerpt } from '../lib/text'
 import type { Blog } from '../store/blog'
 
 interface ProfileStoriesTabProps {
@@ -106,7 +107,7 @@ export default function ProfileStoriesTab({
 
                 {/* Excerpt */}
                 <p className="text-ink-soft text-[14px] leading-relaxed mb-4 line-clamp-2">
-                  {blog.summary || blog.content}
+                  {blog.summary || plainExcerpt(blog.content, 200)}
                 </p>
 
                 {/* Actions & Metrics */}
@@ -131,6 +132,13 @@ export default function ProfileStoriesTab({
                       className="flex items-center gap-2"
                       onClick={(e) => e.stopPropagation()}
                     >
+                      <button
+                        onClick={() => navigate(`/write/${blog.id}`)}
+                        title="Edit story"
+                        className="p-1.5 text-meta hover:text-ink hover:bg-paper-dim/60 rounded-lg transition-colors"
+                      >
+                        <Edit3 size={15} />
+                      </button>
                       <button
                         onClick={() => {
                           if (

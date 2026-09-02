@@ -1,3 +1,4 @@
+import { lazy, Suspense } from 'react';
 import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
 import Landing from './screens/Landing';
 import Cursor from './components/Cursor';
@@ -8,6 +9,8 @@ import Home from './screens/Home';
 import BlogDetail from './screens/BlogDetail';
 import Profile from './screens/Profile';
 import Toast from './components/Toast';
+
+const Write = lazy(() => import('./screens/Write'));
 
 const App = () => {
   return (
@@ -21,6 +24,34 @@ const App = () => {
           <Route path="/signup" element={<Signup />} />
           <Route path="/home" element={<Home />} />
           <Route path="/blog/:id" element={<BlogDetail />} />
+          <Route
+            path="/write"
+            element={
+              <Suspense
+                fallback={
+                  <div className="min-h-screen bg-paper flex items-center justify-center text-meta">
+                    Loading editor…
+                  </div>
+                }
+              >
+                <Write />
+              </Suspense>
+            }
+          />
+          <Route
+            path="/write/:id"
+            element={
+              <Suspense
+                fallback={
+                  <div className="min-h-screen bg-paper flex items-center justify-center text-meta">
+                    Loading editor…
+                  </div>
+                }
+              >
+                <Write />
+              </Suspense>
+            }
+          />
           <Route path="/profile" element={<Profile />} />
           <Route path="/profile/:id" element={<Profile />} />
           <Route path="/author/:id" element={<Profile />} />

@@ -13,6 +13,7 @@ import { clapBlogAtom } from '../store/engagement'
 import { blogsAtom } from '../store/blog'
 import type { Blog } from '../store/blog'
 import { showToastAtom } from '../store/ui'
+import { plainExcerpt } from '../lib/text'
 import BookmarkModal from './BookmarkModal'
 import { useState } from 'react'
 
@@ -150,7 +151,7 @@ export default function BlogCard({ blog, index }: { blog: Blog; index: number })
 
             {/* Subtitle / Excerpt */}
             <p className="text-ink-soft text-[14px] md:text-[15px] leading-relaxed mb-4 line-clamp-2">
-              {blog.summary || blog.content}
+              {blog.summary || plainExcerpt(blog.content, 200)}
             </p>
 
             {/* Actions & Metrics Row */}

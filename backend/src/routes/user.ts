@@ -109,7 +109,15 @@ userRouter.put('/me',
         name: true,
         bio: true,
         avatar: true,
+        createdAt: true,
         updatedAt: true,
+        _count: {
+          select: {
+            posts: true,
+            followers: true,
+            following: true,
+          },
+        },
       },
     })
 
@@ -118,11 +126,17 @@ userRouter.put('/me',
 )
 
 userRouter.get('/:id', async (c) => {
-  const id = c.req.param('id')
-  const user = await prisma.user.findUnique({
-    where: { id },
+  const idOrUsername = c.req.param('id')
+  const user = await prisma.user.findFirst({
+    where: {
+      OR: [
+        { id: idOrUsername },
+        { username: idOrUsername },
+      ],
+    },
     select: {
       id: true,
+      email: true,
       username: true,
       name: true,
       bio: true,

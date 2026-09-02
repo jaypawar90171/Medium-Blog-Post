@@ -45,7 +45,12 @@ const postPublicSelect = {
 }
 
 function readingTime(content: string): number {
-  return Math.max(1, Math.ceil(content.trim().split(/\s+/).length / 200))
+  const text = content
+    .replace(/<[^>]*>/g, ' ')
+    .replace(/&(nbsp|amp|lt|gt|quot);/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim()
+  return Math.max(1, Math.ceil(text.split(/\s+/).length / 200))
 }
 
 function tagWrites(tags: string[] | undefined) {
@@ -203,20 +208,26 @@ blogRouter.put('/',
       return c.json({ error: 'Blog not found or you are not the author' }, 404)
     }
 
-    const blog = await prisma.post.update({
-      where: { id: body.id },
-      data: {
-        title: body.title,
-        content: body.content,
-        summary: body.summary,
-        coverImage: body.coverImage,
-        published: body.published,
-        readingTime: body.content
-          ? readingTime(body.content)
-          : undefined,
-        tags: body.tags ? { create: tagWrites(body.tags) } : undefined,
-      },
-      select: postPublicSelect,
+    const blog = await prisma.$transaction(async (tx) => {
+      if (body.tags) {
+        await tx.postTag.deleteMany({ where: { postId: body.id } })
+      }
+      const updated = await tx.post.update({
+        where: { id: body.id },
+        data: {
+          title: body.title,
+          content: body.content,
+          summary: body.summary,
+          coverImage: body.coverImage,
+          published: body.published,
+          readingTime: body.content
+            ? readingTime(body.content)
+            : undefined,
+          tags: body.tags ? { create: tagWrites(body.tags) } : undefined,
+        },
+        select: postPublicSelect,
+      })
+      return updated
     })
 
     return c.json({ message: 'Blog updated successfully', blog })

@@ -328,9 +328,10 @@ export default function BlogDetailScreen() {
 
           {/* Story Body Content */}
           <div className="prose-invert">
-            <p className="text-lg md:text-[1.2rem] leading-relaxed text-ink whitespace-pre-wrap font-serif">
-              {blog.content}
-            </p>
+            <div
+              className="blog-content"
+              dangerouslySetInnerHTML={{ __html: blog.content }}
+            />
           </div>
 
           {/* Bottom Engagement Bar (Medium Style) */}
