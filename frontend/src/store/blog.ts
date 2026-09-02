@@ -115,4 +115,51 @@ export const fetchBlogByIdAtom = atom(
   },
 )
 
+export const fetchMyBlogsAtom = atom(
+  null,
+  async (get): Promise<Blog[]> => {
+    const token = get(tokenAtom)
+    if (!token) return []
+    try {
+      const res = await authedFetch(`${API_BASE}/mine`, token)
+      const data = await handleResponse<{ blogs: Blog[] }>(res)
+      return data.blogs
+    } catch {
+      return []
+    }
+  },
+)
 
+export const fetchAuthorBlogsAtom = atom(
+  null,
+  async (get, _set, authorId: string): Promise<Blog[]> => {
+    const token = get(tokenAtom)
+    try {
+      const res = await authedFetch(`${API_BASE}/author/${authorId}`, token)
+      const data = await handleResponse<{ blogs: Blog[] }>(res)
+      return data.blogs
+    } catch {
+      return []
+    }
+  },
+)
+
+export const deleteBlogAtom = atom(
+  null,
+  async (get, set, id: string): Promise<boolean> => {
+    const token = get(tokenAtom)
+    if (!token) return false
+    try {
+      const res = await fetch(`${API_BASE}/${id}`, {
+        method: 'DELETE',
+        headers: { Authorization: `Bearer ${token}` },
+      })
+      await handleResponse<{ message: string }>(res)
+      const current = get(blogsAtom)
+      set(blogsAtom, current.filter((b) => b.id !== id))
+      return true
+    } catch {
+      return false
+    }
+  },
+)

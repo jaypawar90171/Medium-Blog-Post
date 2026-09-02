@@ -6,6 +6,7 @@ import SignIn from './screens/SignIn';
 import Signup from './screens/Signup';
 import Home from './screens/Home';
 import BlogDetail from './screens/BlogDetail';
+import Profile from './screens/Profile';
 import Toast from './components/Toast';
 
 const App = () => {
@@ -20,6 +21,9 @@ const App = () => {
           <Route path="/signup" element={<Signup />} />
           <Route path="/home" element={<Home />} />
           <Route path="/blog/:id" element={<BlogDetail />} />
+          <Route path="/profile" element={<Profile />} />
+          <Route path="/profile/:id" element={<Profile />} />
+          <Route path="/author/:id" element={<Profile />} />
         </Routes>
       </Router>
     </ThemeProvider>

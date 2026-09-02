@@ -144,9 +144,17 @@ export default function HomeNavbar() {
               <button
                 onClick={() => navigate('/profile')}
                 title="Profile"
-                className="w-9 h-9 rounded-full bg-red text-paper flex items-center justify-center font-serif text-[15px] font-semibold hover:bg-red-dim transition-colors shadow-sm"
+                className="w-9 h-9 rounded-full overflow-hidden border border-rule shadow-sm hover:opacity-90 transition-opacity flex items-center justify-center bg-red text-paper font-serif text-[15px] font-semibold"
               >
-                {initial}
+                {user?.avatar ? (
+                  <img
+                    src={user.avatar}
+                    alt={user.name || 'User'}
+                    className="w-full h-full object-cover"
+                  />
+                ) : (
+                  initial
+                )}
               </button>
             </div>
           ) : (

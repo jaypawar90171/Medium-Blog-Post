@@ -363,3 +363,37 @@ export const fetchBookmarkListPostsAtom = atom(
     return await handleResponse<BookmarkResponse>(res)
   },
 )
+
+// ---- Follows ----
+
+export const followUserAtom = atom(
+  null,
+  async (get, _set, { userId }: { userId: string }) => {
+    const token = get(tokenAtom)
+    const res = await authedPost(`${API_BASE}/follow`, { userId }, token)
+    return await handleResponse<{ message: string }>(res)
+  },
+)
+
+export const unfollowUserAtom = atom(
+  null,
+  async (get, _set, { userId }: { userId: string }) => {
+    const token = get(tokenAtom)
+    const res = await authedDelete(`${API_BASE}/follow/${userId}`, token)
+    return await handleResponse<{ message: string }>(res)
+  },
+)
+
+export const fetchFollowStatusAtom = atom(
+  null,
+  async (get, _set, { userId }: { userId: string }) => {
+    const token = get(tokenAtom)
+    if (!token) return { isFollowing: false }
+    try {
+      const res = await authedFetch(`${API_BASE}/follow/status/${userId}`, token)
+      return await handleResponse<{ isFollowing: boolean }>(res)
+    } catch {
+      return { isFollowing: false }
+    }
+  },
+)
