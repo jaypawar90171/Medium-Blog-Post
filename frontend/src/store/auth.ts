@@ -7,6 +7,13 @@ export interface User {
   name?: string | null
   username?: string | null
   bio?: string | null
+  avatar?: string | null
+  createdAt?: string
+  _count?: {
+    posts: number
+    followers: number
+    following: number
+  }
 }
 
 const API_BASE = '/api/v1/user'
@@ -22,7 +29,7 @@ interface AuthResult {
 async function handleResponse<T>(res: Response): Promise<T> {
   const data = await res.json().catch(() => ({}))
   if (!res.ok) {
-    throw new Error((data as { message?: string }).message || 'Something went wrong')
+    throw new Error((data as { message?: string; error?: string }).message || (data as any)?.error || 'Something went wrong')
   }
   return data as T
 }
@@ -81,6 +88,65 @@ export const signOutAtom = atom(null, (_get, set) => {
   set(tokenAtom, null)
   set(userAtom, null)
 })
+
+export const fetchMeAtom = atom(
+  null,
+  async (get, set): Promise<User | null> => {
+    const token = get(tokenAtom)
+    if (!token) return null
+    try {
+      const res = await fetch(`${API_BASE}/me`, {
+        headers: { Authorization: `Bearer ${token}` },
+      })
+      const data = await handleResponse<{ user: User }>(res)
+      set(userAtom, data.user)
+      return data.user
+    } catch (e) {
+      console.error('Failed to fetch user:', e)
+      return null
+    }
+  },
+)
+
+export const updateProfileAtom = atom(
+  null,
+  async (
+    get,
+    set,
+    payload: { name?: string; username?: string; bio?: string; avatar?: string },
+  ): Promise<{ ok: boolean; user?: User; error?: string }> => {
+    const token = get(tokenAtom)
+    if (!token) return { ok: false, error: 'Not authenticated' }
+    try {
+      const res = await fetch(`${API_BASE}/me`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify(payload),
+      })
+      const data = await handleResponse<{ message: string; user: User }>(res)
+      set(userAtom, data.user)
+      return { ok: true, user: data.user }
+    } catch (e) {
+      return { ok: false, error: (e as Error).message }
+    }
+  },
+)
+
+export const fetchUserByIdAtom = atom(
+  null,
+  async (_get, _set, idOrUsername: string): Promise<User | null> => {
+    try {
+      const res = await fetch(`${API_BASE}/${idOrUsername}`)
+      const data = await handleResponse<{ user: User }>(res)
+      return data.user
+    } catch {
+      return null
+    }
+  },
+)
 
 export const isAuthenticatedAtom = atom((get) => get(tokenAtom) !== null)
 

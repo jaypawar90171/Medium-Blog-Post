@@ -1,12 +1,14 @@
 import { Hono } from 'hono'
 import { zValidator } from '@hono/zod-validator'
 import { prisma, type Variables } from '../lib/prisma'
+import { sql } from '../lib/neon'
 import {
   createBlogInput,
   updateBlogInput,
   blogIdParams,
 } from '../lib/schemas'
 import { authMiddleware } from '../middleware/auth'
+import { getRecommendations } from '../lib/recommender'
 
 export const blogRouter = new Hono<{ Variables: Variables }>()
 blogRouter.use('*', authMiddleware)
@@ -45,7 +47,12 @@ const postPublicSelect = {
 }
 
 function readingTime(content: string): number {
-  return Math.max(1, Math.ceil(content.trim().split(/\s+/).length / 200))
+  const text = content
+    .replace(/<[^>]*>/g, ' ')
+    .replace(/&(nbsp|amp|lt|gt|quot);/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim()
+  return Math.max(1, Math.ceil(text.split(/\s+/).length / 200))
 }
 
 function tagWrites(tags: string[] | undefined) {
@@ -57,6 +64,98 @@ function tagWrites(tags: string[] | undefined) {
       },
     },
   }))
+}
+
+blogRouter.get('/search', async (c) => {
+  const q = (c.req.query('q') || '').trim()
+  const page = Math.max(1, parseInt(c.req.query('page') || '1', 10) || 1)
+  const pageSize = Math.min(
+    50,
+    Math.max(1, parseInt(c.req.query('pageSize') || '10', 10) || 10)
+  )
+
+  if (!q) {
+    return c.json({ blogs: [], pagination: { page, pageSize, total: 0, totalPages: 0 } })
+  }
+
+  const query = websearch(q)
+  const offset = (page - 1) * pageSize
+
+  const [rows, totalRows] = await Promise.all([
+    sql`  
+      SELECT
+        p.id, p.title, p.content, p."summary", p."coverImage", p."published",
+        p."readingTime", p.views, p."createdAt", p."updatedAt",
+        to_jsonb(a) AS author,
+        COALESCE(
+          jsonb_agg(
+            jsonb_build_object('tag', jsonb_build_object('id', t.id, 'name', t.name))
+          ) FILTER (WHERE t.id IS NOT NULL),
+          '[]'::jsonb
+        ) AS tags,
+        (SELECT COUNT(*)::int FROM "Comment" cc WHERE cc."postId" = p.id) AS comment_count,
+        (SELECT COALESCE(SUM(cl.count), 0)::int FROM "Clap" cl WHERE cl."postId" = p.id) AS clap_count,
+        (SELECT COUNT(*)::int FROM "Bookmark" bk WHERE bk."postId" = p.id) AS bookmark_count,
+        ts_rank(p."searchVector", websearch_to_tsquery('english', ${query})) AS rank
+      FROM "Post" p
+      JOIN "User" a ON a.id = p."authorId"
+      LEFT JOIN "PostTag" pt ON pt."postId" = p.id
+      LEFT JOIN "Tag" t ON t.id = pt."tagId"
+      WHERE p."published" = true
+        AND p."searchVector" @@ websearch_to_tsquery('english', ${query})
+      GROUP BY p.id, a.id
+      ORDER BY rank DESC, p."createdAt" DESC
+      LIMIT ${pageSize} OFFSET ${offset}
+    `,
+    sql`
+      SELECT COUNT(*)::int AS total
+      FROM "Post" p
+      WHERE p."published" = true
+        AND p."searchVector" @@ websearch_to_tsquery('english', ${query})
+    `,
+  ])
+
+  const total = totalRows[0]?.total ?? 0
+
+  const blogs = rows.map((r: any) => ({
+    id: r.id,
+    title: r.title,
+    content: r.content,
+    summary: r.summary,
+    coverImage: r.coverImage,
+    published: r.published,
+    readingTime: r.readingTime,
+    views: r.views,
+    createdAt: r.createdAt,
+    updatedAt: r.updatedAt,
+    author: {
+      id: r.author?.id,
+      name: r.author?.name,
+      username: r.author?.username,
+      avatar: r.author?.avatar,
+    },
+    tags: r.tags || [],
+    _count: {
+      comments: r.comment_count ?? 0,
+      claps: r.clap_count ?? 0,
+      bookmarks: r.bookmark_count ?? 0,
+    },
+  }))
+
+  return c.json({
+    blogs,
+    pagination: {
+      page,
+      pageSize,
+      total,
+      totalPages: Math.ceil(total / pageSize),
+    },
+  })
+})
+
+// it's for full text search with ranked results 
+function websearch(q: string): string {
+  return q.replace(/\s+/g, ' ').replace(/\\/g, ' ').replace(/'/g, "''")
 }
 
 blogRouter.get('/bulk', async (c) => {
@@ -96,6 +195,38 @@ blogRouter.get('/bulk', async (c) => {
       totalPages: Math.ceil(total / pageSize),
     },
   })
+})
+
+blogRouter.get('/recommend', async (c) => {
+  const userId = c.get('userId')
+  const page = Math.max(1, parseInt(c.req.query('page') || '1', 10) || 1)
+  const pageSize = Math.min(
+    50,
+    Math.max(1, parseInt(c.req.query('pageSize') || '10', 10) || 10)
+  )
+
+  try {
+    const result = await getRecommendations(userId, page, pageSize)
+    return c.json(result)
+  } catch {
+    // Fault-tolerant degradation: fall back to /bulk behavior
+    const where: any = { published: true, authorId: { not: userId } }
+    const [blogs, total] = await Promise.all([
+      prisma.post.findMany({
+        where,
+        select: postPublicSelect,
+        orderBy: { createdAt: 'desc' },
+        skip: (page - 1) * pageSize,
+        take: pageSize,
+      }),
+      prisma.post.count({ where }),
+    ])
+    return c.json({
+      blogs,
+      pagination: { page, pageSize, total, totalPages: Math.ceil(total / pageSize) },
+      whoToFollow: [],
+    })
+  }
 })
 
 blogRouter.get('/mine', async (c) => {
@@ -203,20 +334,26 @@ blogRouter.put('/',
       return c.json({ error: 'Blog not found or you are not the author' }, 404)
     }
 
-    const blog = await prisma.post.update({
-      where: { id: body.id },
-      data: {
-        title: body.title,
-        content: body.content,
-        summary: body.summary,
-        coverImage: body.coverImage,
-        published: body.published,
-        readingTime: body.content
-          ? readingTime(body.content)
-          : undefined,
-        tags: body.tags ? { create: tagWrites(body.tags) } : undefined,
-      },
-      select: postPublicSelect,
+    const blog = await prisma.$transaction(async (tx) => {
+      if (body.tags) {
+        await tx.postTag.deleteMany({ where: { postId: body.id } })
+      }
+      const updated = await tx.post.update({
+        where: { id: body.id },
+        data: {
+          title: body.title,
+          content: body.content,
+          summary: body.summary,
+          coverImage: body.coverImage,
+          published: body.published,
+          readingTime: body.content
+            ? readingTime(body.content)
+            : undefined,
+          tags: body.tags ? { create: tagWrites(body.tags) } : undefined,
+        },
+        select: postPublicSelect,
+      })
+      return updated
     })
 
     return c.json({ message: 'Blog updated successfully', blog })

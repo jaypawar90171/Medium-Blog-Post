@@ -145,3 +145,231 @@ html.dark *::after {
     scroll-behavior: auto !important;
   }
 }
+
+/* ============================================================
+   Rich text: shared between the TipTap editor (writing)
+   and the rendered article body (.blog-content)
+   ============================================================ */
+
+.tiptap-editor,
+.blog-content {
+  outline: none;
+  font-family: var(--font-serif);
+  font-size: 1.25rem;
+  line-height: 1.7;
+  color: rgb(var(--color-ink));
+}
+
+.tiptap-editor {
+  min-height: 40vh;
+}
+
+.tiptap-editor > * + *,
+.blog-content > * + * {
+  margin-top: 0.75em;
+}
+
+.tiptap-editor h1,
+.blog-content h1 {
+  font-size: 2em;
+  font-weight: 700;
+  line-height: 1.2;
+  margin-top: 1.2em;
+  margin-bottom: 0.4em;
+}
+
+.tiptap-editor h2,
+.blog-content h2 {
+  font-size: 1.6em;
+  font-weight: 700;
+  line-height: 1.25;
+  margin-top: 1.1em;
+  margin-bottom: 0.4em;
+}
+
+.tiptap-editor h3,
+.blog-content h3 {
+  font-size: 1.25em;
+  font-weight: 600;
+  line-height: 1.3;
+  margin-top: 1em;
+  margin-bottom: 0.4em;
+}
+
+.tiptap-editor p,
+.blog-content p {
+  margin: 0;
+  color: rgb(var(--color-ink));
+}
+
+.tiptap-editor strong,
+.blog-content strong {
+  font-weight: 700;
+}
+
+.tiptap-editor em,
+.blog-content em {
+  font-style: italic;
+}
+
+.tiptap-editor del,
+.blog-content del {
+  text-decoration: line-through;
+}
+
+.tiptap-editor mark,
+.blog-content mark {
+  background-color: rgb(255 236 90 / 0.55);
+  color: inherit;
+  padding: 0.1em 0.2em;
+  border-radius: 0.25em;
+}
+
+.tiptap-editor ul,
+.blog-content ul,
+.tiptap-editor ol,
+.blog-content ol {
+  padding-left: 1.5em;
+}
+
+.tiptap-editor ul,
+.blog-content ul {
+  list-style: disc;
+}
+
+.tiptap-editor ol,
+.blog-content ol {
+  list-style: decimal;
+}
+
+.tiptap-editor li,
+.blog-content li {
+  margin: 0.25em 0;
+}
+
+.tiptap-editor li p,
+.blog-content li p {
+  margin: 0;
+  display: inline;
+}
+
+.tiptap-editor blockquote,
+.blog-content blockquote {
+  border-left: 3px solid rgb(var(--color-red));
+  padding-left: 1em;
+  margin: 1em 0;
+  font-style: italic;
+  color: rgb(var(--color-ink-soft));
+}
+
+.tiptap-editor pre,
+.blog-content pre {
+  background-color: rgb(var(--color-paper-dim));
+  border: 1px solid rgb(var(--color-rule));
+  border-radius: 0.75rem;
+  padding: 1rem 1.25rem;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 0.875rem;
+  line-height: 1.6;
+  overflow-x: auto;
+  color: rgb(var(--color-ink));
+}
+
+.tiptap-editor code,
+.blog-content code {
+  background-color: rgb(var(--color-paper-dim));
+  border-radius: 0.3em;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 0.875em;
+  padding: 0.15em 0.4em;
+  color: rgb(var(--color-red));
+}
+
+.tiptap-editor pre code,
+.blog-content pre code {
+  background: none;
+  color: inherit;
+  padding: 0;
+  font-size: inherit;
+}
+
+.tiptap-editor img,
+.blog-content img {
+  max-width: 100%;
+  height: auto;
+  border-radius: 0.75rem;
+  margin: 1em 0;
+  display: block;
+}
+
+.tiptap-editor a,
+.blog-content a {
+  color: rgb(var(--color-red));
+  text-decoration: underline;
+  text-underline-offset: 2px;
+  cursor: pointer;
+}
+
+.tiptap-editor hr,
+.blog-content hr {
+  border: none;
+  border-top: 1px solid rgb(var(--color-rule));
+  margin: 2em 0;
+}
+
+.tiptap-editor ul[data-type="taskList"],
+.blog-content ul[data-type="taskList"] {
+  list-style: none;
+  padding-left: 0;
+}
+
+.tiptap-editor ul[data-type="taskList"] li,
+.blog-content ul[data-type="taskList"] li {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.5em;
+}
+
+.tiptap-editor ul[data-type="taskList"] li > label,
+.blog-content ul[data-type="taskList"] li > label {
+  flex: 0 0 auto;
+  margin-top: 0.35em;
+}
+
+.tiptap-editor ul[data-type="taskList"] li > div,
+.blog-content ul[data-type="taskList"] li > div {
+  flex: 1 1 auto;
+}
+
+.tiptap-editor ul[data-type="taskList"] li[data-checked="true"] > div,
+.blog-content ul[data-type="taskList"] li[data-checked="true"] > div {
+  text-decoration: line-through;
+  color: rgb(var(--color-meta));
+}
+
+/* Editor-specific */
+.tiptap-editor img.ProseMirror-selectednode {
+  outline: 2px solid rgb(var(--color-red));
+  outline-offset: 2px;
+}
+
+.tiptap-editor .is-editor-empty:first-child::before {
+  content: attr(data-placeholder);
+  color: rgb(var(--color-meta) / 0.7);
+  float: left;
+  height: 0;
+  pointer-events: none;
+}
+
+.tiptap-editor .ProseMirror-selectednode {
+  outline: 2px solid rgb(var(--color-red));
+  border-radius: 0.5rem;
+}
+
+.tiptap-editor ::selection {
+  background-color: rgb(var(--color-red) / 0.25);
+}
+
+.tiptap-editor .node-image-resizer {
+  outline: 2px solid rgb(var(--color-red));
+}

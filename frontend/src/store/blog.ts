@@ -84,6 +84,7 @@ export const fetchFeedAtom = atom(
   async (get, set, { page, pageSize = 8, tag }: { page: number; pageSize?: number; tag?: string }) => {
     const token = get(tokenAtom)
     set(feedLoadingAtom, true)
+    // @ts-ignore
     set(feedErrorAtom, null)
     try {
       const params = new URLSearchParams({ page: String(page), pageSize: String(pageSize) })
@@ -94,9 +95,53 @@ export const fetchFeedAtom = atom(
       set(paginationAtom, data.pagination)
       set(currentPageAtom, page)
     } catch (e) {
+      // @ts-ignore
       set(feedErrorAtom, (e as Error).message)
     } finally {
       set(feedLoadingAtom, false)
+    }
+  },
+)
+
+export const searchResultAtom = atom<Blog[]>([])
+export const searchPaginationAtom = atom<{ page: number; pageSize: number; total: number; totalPages: number }>({
+  page: 1,
+  pageSize: 10,
+  total: 0,
+  totalPages: 0,
+})
+export const searchLoadingAtom = atom(false)
+export const searchErrorAtom = atom<string | null>(null)
+export const searchQueryAtom = atom('')
+
+export const fetchSearchAtom = atom(
+  null,
+  async (get, set, { q, page = 1, pageSize = 10 }: { q: string; page?: number; pageSize?: number }) => {
+    const token = get(tokenAtom)
+    if (!q.trim()) {
+      set(searchResultAtom, [])
+      set(searchPaginationAtom, { page: 1, pageSize, total: 0, totalPages: 0 })
+      return
+    }
+    set(searchLoadingAtom, true)
+    // @ts-ignore
+    set(searchErrorAtom, null)
+    set(searchQueryAtom, q)
+    try {
+      const params = new URLSearchParams({
+        q: q.trim(),
+        page: String(page),
+        pageSize: String(pageSize),
+      })
+      const res = await authedFetch(`${API_BASE}/search?${params.toString()}`, token)
+      const data = await handleResponse<FeedResult>(res)
+      set(searchResultAtom, data.blogs)
+      set(searchPaginationAtom, data.pagination)
+    } catch (e) {
+      // @ts-ignore
+      set(searchErrorAtom, (e as Error).message)
+    } finally {
+      set(searchLoadingAtom, false)
     }
   },
 )
@@ -115,4 +160,147 @@ export const fetchBlogByIdAtom = atom(
   },
 )
 
+export const fetchMyBlogsAtom = atom(
+  null,
+  async (get): Promise<Blog[]> => {
+    const token = get(tokenAtom)
+    if (!token) return []
+    try {
+      const res = await authedFetch(`${API_BASE}/mine`, token)
+      const data = await handleResponse<{ blogs: Blog[] }>(res)
+      return data.blogs
+    } catch {
+      return []
+    }
+  },
+)
 
+export const fetchAuthorBlogsAtom = atom(
+  null,
+  async (get, _set, authorId: string): Promise<Blog[]> => {
+    const token = get(tokenAtom)
+    try {
+      const res = await authedFetch(`${API_BASE}/author/${authorId}`, token)
+      const data = await handleResponse<{ blogs: Blog[] }>(res)
+      return data.blogs
+    } catch {
+      return []
+    }
+  },
+)
+
+export const deleteBlogAtom = atom(
+  null,
+  async (get, set, id: string): Promise<boolean> => {
+    const token = get(tokenAtom)
+    if (!token) return false
+    try {
+      const res = await fetch(`${API_BASE}/${id}`, {
+        method: 'DELETE',
+        headers: { Authorization: `Bearer ${token}` },
+      })
+      await handleResponse<{ message: string }>(res)
+      const current = get(blogsAtom)
+      set(blogsAtom, current.filter((b) => b.id !== id))
+      return true
+    } catch {
+      return false
+    }
+  },
+)
+
+export interface CreateBlogPayload {
+  title: string
+  content: string
+  summary?: string
+  coverImage?: string
+  tags?: string[]
+}
+
+export const createBlogAtom = atom(
+  null,
+  async (
+    get,
+    _set,
+    payload: CreateBlogPayload,
+  ): Promise<{ ok: boolean; blog?: Blog; error?: string }> => {
+    const token = get(tokenAtom)
+    if (!token) return { ok: false, error: 'Not authenticated' }
+    try {
+      const res = await fetch(`${API_BASE}`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify(payload),
+      })
+      const data = await handleResponse<{ message: string; blog: Blog }>(res)
+      return { ok: true, blog: data.blog }
+    } catch (e) {
+      return { ok: false, error: (e as Error).message }
+    }
+  },
+)
+
+export const updateBlogAtom = atom(
+  null,
+  async (
+    get,
+    _set,
+    payload: CreateBlogPayload & { id: string },
+  ): Promise<{ ok: boolean; blog?: Blog; error?: string }> => {
+    const token = get(tokenAtom)
+    if (!token) return { ok: false, error: 'Not authenticated' }
+    try {
+      const res = await fetch(`${API_BASE}`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify(payload),
+      })
+      const data = await handleResponse<{ message: string; blog: Blog }>(res)
+      return { ok: true, blog: data.blog }
+    } catch (e) {
+      return { ok: false, error: (e as Error).message }
+    }
+  },
+)
+
+export const publishBlogAtom = atom(
+  null,
+  async (get, _set, id: string): Promise<{ ok: boolean; error?: string }> => {
+    const token = get(tokenAtom)
+    if (!token) return { ok: false, error: 'Not authenticated' }
+    try {
+      const res = await fetch(`${API_BASE}/${id}/publish`, {
+        method: 'PATCH',
+        headers: { Authorization: `Bearer ${token}` },
+      })
+      await handleResponse<{ message: string }>(res)
+      return { ok: true }
+    } catch (e) {
+      return { ok: false, error: (e as Error).message }
+    }
+  },
+)
+
+export const unpublishBlogAtom = atom(
+  null,
+  async (get, _set, id: string): Promise<{ ok: boolean; error?: string }> => {
+    const token = get(tokenAtom)
+    if (!token) return { ok: false, error: 'Not authenticated' }
+    try {
+      const res = await fetch(`${API_BASE}/${id}/unpublish`, {
+        method: 'PATCH',
+        headers: { Authorization: `Bearer ${token}` },
+      })
+      await handleResponse<{ message: string }>(res)
+      return { ok: true }
+    } catch (e) {
+      return { ok: false, error: (e as Error).message }
+    }
+  },
+)

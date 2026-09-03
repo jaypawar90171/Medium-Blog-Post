@@ -1,18 +1,14 @@
 info:
-  name: Get by tag name
+  name: Get recommendation
   type: http
-  seq: 6
+  seq: 12
 
 http:
   method: GET
-  url: "{{BASE_URL}}/blog/tag/:tagName"
+  url: "{{BASE_URL}}/blog/recommend"
   headers:
     - name: Authorization
       value: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6ImI5MTU2MjRiLTViN2EtNDU3Ny1hZWZkLTVkMzAzYzQyODQ0NSJ9.1-DGwh1iTDDa5-w8GBUgLJ_WcGdNX4NRpcTi12XDYQM
-  params:
-    - name: tagName
-      value: System Design
-      type: path
   auth: inherit
 
 settings:

@@ -11,7 +11,7 @@ http:
     data: |-
       {
         "email": "jay.pawar@gmail.com",
-        "password": "jay123",
+        "password": "  ",
         "name": "Jay Pawar",
         "username": "jay_07",
         "bio": "Agentic AI developer, building cool things."

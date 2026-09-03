@@ -5,7 +5,7 @@ info:
 
 http:
   method: POST
-  url: "{{BASE_URL}}/blog"
+  url: "{{BASE_URL}}/blog/"
   headers:
     - name: Authorization
       value: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6IjI1ZmFjOTI5LWIwYWUtNDQwMS05YzUxLTg1MDk4N2ZmMGYwYiJ9.aPCtQEcNQS8BwS8C72zyaX62KSyV2Ls_qVcVmQJtjSg

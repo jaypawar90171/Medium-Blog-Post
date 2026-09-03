@@ -5,15 +5,14 @@ info:
 
 http:
   method: GET
-  url: "{{BASE_URL}}/blog/bulk"
+  url: "{{BASE_URL}}/blog/bulk?tag=react"
   headers:
     - name: Authorization
       value: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6ImI5MTU2MjRiLTViN2EtNDU3Ny1hZWZkLTVkMzAzYzQyODQ0NSJ9.1-DGwh1iTDDa5-w8GBUgLJ_WcGdNX4NRpcTi12XDYQM
   params:
     - name: tag
-      value: ""
+      value: react
       type: query
-      disabled: true
     - name: authorId
       value: ""
       type: query
