@@ -51,6 +51,14 @@ export default function HomeNavbar() {
     }
   }
 
+  // navigate to search page after pressing enter
+  const handleSearchSubmit = (e: React.FormEvent) => {
+    e.preventDefault()
+    const term = searchQuery.trim()
+    if (!term) return
+    navigate(`/search?q=${encodeURIComponent(term)}`)
+  }
+
   return (
     <motion.header
       initial={{ y: -24, opacity: 0 }}
@@ -84,7 +92,10 @@ export default function HomeNavbar() {
           </button>
 
           {/* Medium-style Search bar */}
-          <div className="hidden sm:flex items-center gap-2 bg-paper-dim/70 hover:bg-paper-dim focus-within:bg-paper focus-within:border-ink/40 border border-transparent px-3.5 py-2 rounded-full transition-all duration-200 w-44 md:w-64">
+          <form
+            onSubmit={handleSearchSubmit}
+            className="hidden sm:flex items-center gap-2 bg-paper-dim/70 hover:bg-paper-dim focus-within:bg-paper focus-within:border-ink/40 border border-transparent px-3.5 py-2 rounded-full transition-all duration-200 w-44 md:w-64"
+          >
             <Search size={16} className="text-meta shrink-0" />
             <input
               type="text"
@@ -93,7 +104,7 @@ export default function HomeNavbar() {
               onChange={(e) => setSearchQuery(e.target.value)}
               className="bg-transparent text-[14px] text-ink placeholder:text-meta outline-none w-full"
             />
-          </div>
+          </form>
         </div>
 
         {/* Right Section: Actions + Theme + Profile */}

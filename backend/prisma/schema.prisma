@@ -51,8 +51,12 @@ model Post {
   claps     Clap[]
   bookmarks Bookmark[]
   tags      PostTag[]
+
+  searchVector Unsupported("tsvector")?
+
   @@index([authorId])
   @@index([published, createdAt])
+  @@index([searchVector], type: Gin)
 }
 
 model Comment {

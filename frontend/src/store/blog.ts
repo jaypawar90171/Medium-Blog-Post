@@ -103,6 +103,49 @@ export const fetchFeedAtom = atom(
   },
 )
 
+export const searchResultAtom = atom<Blog[]>([])
+export const searchPaginationAtom = atom<{ page: number; pageSize: number; total: number; totalPages: number }>({
+  page: 1,
+  pageSize: 10,
+  total: 0,
+  totalPages: 0,
+})
+export const searchLoadingAtom = atom(false)
+export const searchErrorAtom = atom<string | null>(null)
+export const searchQueryAtom = atom('')
+
+export const fetchSearchAtom = atom(
+  null,
+  async (get, set, { q, page = 1, pageSize = 10 }: { q: string; page?: number; pageSize?: number }) => {
+    const token = get(tokenAtom)
+    if (!q.trim()) {
+      set(searchResultAtom, [])
+      set(searchPaginationAtom, { page: 1, pageSize, total: 0, totalPages: 0 })
+      return
+    }
+    set(searchLoadingAtom, true)
+    // @ts-ignore
+    set(searchErrorAtom, null)
+    set(searchQueryAtom, q)
+    try {
+      const params = new URLSearchParams({
+        q: q.trim(),
+        page: String(page),
+        pageSize: String(pageSize),
+      })
+      const res = await authedFetch(`${API_BASE}/search?${params.toString()}`, token)
+      const data = await handleResponse<FeedResult>(res)
+      set(searchResultAtom, data.blogs)
+      set(searchPaginationAtom, data.pagination)
+    } catch (e) {
+      // @ts-ignore
+      set(searchErrorAtom, (e as Error).message)
+    } finally {
+      set(searchLoadingAtom, false)
+    }
+  },
+)
+
 export const fetchBlogByIdAtom = atom(
   null,
   async (get, _set, id: string): Promise<BlogDetail | null> => {

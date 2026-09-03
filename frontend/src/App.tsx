@@ -6,6 +6,7 @@ import { ThemeProvider } from './context/ThemeContext';
 import SignIn from './screens/SignIn';
 import Signup from './screens/Signup';
 import Home from './screens/Home';
+import Search from './screens/Search';
 import BlogDetail from './screens/BlogDetail';
 import Profile from './screens/Profile';
 import Toast from './components/Toast';
@@ -23,6 +24,7 @@ const App = () => {
           <Route path="/signin" element={<SignIn />} />
           <Route path="/signup" element={<Signup />} />
           <Route path="/home" element={<Home />} />
+          <Route path="/search" element={<Search />} />
           <Route path="/blog/:id" element={<BlogDetail />} />
           <Route
             path="/write"
