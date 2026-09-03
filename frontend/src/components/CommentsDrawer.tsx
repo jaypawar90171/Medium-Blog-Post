@@ -11,6 +11,8 @@ import {
   Check,
   AlertCircle,
   LogIn,
+  CornerDownRight,
+  MessageSquareReply,
 } from 'lucide-react'
 import { useAtomValue, useSetAtom } from 'jotai'
 import { useNavigate } from 'react-router-dom'
@@ -22,6 +24,8 @@ import {
   addCommentAtom,
   updateCommentAtom,
   deleteCommentAtom,
+  fetchRepliesAtom,
+  repliesByParentIdAtom,
 } from '../store/engagement'
 import type { Comment } from '../store/engagement'
 import { userAtom, tokenAtom } from '../store/auth'
@@ -79,6 +83,8 @@ export default function CommentsDrawer({
   const addComment = useSetAtom(addCommentAtom)
   const updateComment = useSetAtom(updateCommentAtom)
   const deleteComment = useSetAtom(deleteCommentAtom)
+  const fetchReplies = useSetAtom(fetchRepliesAtom)
+  const repliesByParent = useAtomValue(repliesByParentIdAtom)
   const showToast = useSetAtom(showToastAtom)
 
   const user = useAtomValue(userAtom)
@@ -89,6 +95,16 @@ export default function CommentsDrawer({
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [submitError, setSubmitError] = useState<string | null>(null)
   const [isFocused, setIsFocused] = useState(false)
+
+  // Reply state
+  const [replyingTo, setReplyingTo] = useState<string | null>(null)
+  const [replyContent, setReplyContent] = useState('')
+  const [replySubmitting, setReplySubmitting] = useState(false)
+  const [replyError, setReplyError] = useState<string | null>(null)
+
+  // Loaded replies set (parent ids whose replies have been fetched)
+  const [loadedReplies, setLoadedReplies] = useState<Set<string>>(new Set())
+  const [expandedReplies, setExpandedReplies] = useState<Set<string>>(new Set())
 
   // Edit state
   const [editingId, setEditingId] = useState<string | null>(null)
@@ -207,6 +223,293 @@ export default function CommentsDrawer({
   }
 
   const currentUserName = user?.name || user?.username || 'You'
+
+  // Toggle the replies section of a parent comment, loading them on first open
+  const toggleReplies = async (parentId: string) => {
+    if (!loadedReplies.has(parentId)) {
+      await fetchReplies({ parentId })
+      setLoadedReplies((prev) => new Set(prev).add(parentId))
+    }
+    setExpandedReplies((prev) => {
+      const next = new Set(prev)
+      if (next.has(parentId)) next.delete(parentId)
+      else next.add(parentId)
+      return next
+    })
+  }
+
+  const startReply = (commentId: string) => {
+    if (replyingTo === commentId) {
+      setReplyingTo(null)
+      setReplyContent('')
+      setReplyError(null)
+    } else {
+      setReplyingTo(commentId)
+      setReplyContent('')
+      setReplyError(null)
+    }
+  }
+
+  const handleReplySubmit = async (e: React.FormEvent, parentId: string) => {
+    e.preventDefault()
+    if (!replyContent.trim() || replySubmitting) return
+
+    if (!token) {
+      setReplyError('Please sign in to reply.')
+      return
+    }
+
+    setReplySubmitting(true)
+    setReplyError(null)
+    try {
+      await addComment({ postId, content: replyContent.trim(), parentId })
+      // Keep the parent's replies expanded + loaded
+      setRepliesLoadedState(parentId)
+      setReplyContent('')
+      setReplyingTo(null)
+      onCommentCountChange?.(1)
+      showToast({ message: 'Reply published', type: 'success' })
+    } catch (err) {
+      setReplyError((err as Error).message || 'Failed to post reply')
+    } finally {
+      setReplySubmitting(false)
+    }
+  }
+
+  const setRepliesLoadedState = (parentId: string) => {
+    setLoadedReplies((prev) => new Set(prev).add(parentId))
+    setExpandedReplies((prev) => new Set(prev).add(parentId))
+    // Re-fetch to get server truth
+    fetchReplies({ parentId })
+  }
+
+  const renderCommentCard = (comment: Comment, _parentId: string | null, isReply = false) => {
+    const authorDisplayName =
+      comment.author.name || comment.author.username || 'Anonymous'
+    const isOwner = user?.id === comment.author.id
+    const isEditing = editingId === comment.id
+    const isDeleting = deletingId === comment.id
+    const replyCount = Number(comment._count?.replies || 0)
+
+    return (
+      <div
+        key={comment.id}
+        className={`py-4 ${isReply ? '' : 'border-b border-rule/60 last:border-b-0'} space-y-2.5 transition-colors`}
+      >
+        {/* Comment Header: Author & Options */}
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-2.5">
+            {comment.author.avatar ? (
+              <img
+                src={comment.author.avatar}
+                alt={authorDisplayName}
+                className="w-7 h-7 rounded-full object-cover"
+              />
+            ) : (
+              <span className={`rounded-full bg-ink/10 text-ink text-[11px] font-semibold flex items-center justify-center shrink-0 ${isReply ? 'w-6 h-6' : 'w-7 h-7'}`}>
+                {authorDisplayName[0]?.toUpperCase()}
+              </span>
+            )}
+            <div>
+              <p className={`font-semibold text-ink leading-none ${isReply ? 'text-[11px]' : 'text-xs'}`}>
+                {authorDisplayName}
+              </p>
+              <p className="text-[11px] text-meta mt-1">
+                {formatTimeAgo(comment.createdAt)}
+                {comment.updatedAt &&
+                  comment.updatedAt !== comment.createdAt && (
+                    <span className="ml-1 text-[10px] text-meta italic">
+                      (edited)
+                    </span>
+                  )}
+              </p>
+            </div>
+          </div>
+
+          {/* Owner Actions Dropdown */}
+          {isOwner && (
+            <div className="relative">
+              <button
+                onClick={(e) => {
+                  e.stopPropagation()
+                  setActiveMenuId(activeMenuId === comment.id ? null : comment.id)
+                }}
+                className="p-1 rounded-full text-meta hover:text-ink hover:bg-paper-dim transition-colors"
+              >
+                <MoreVertical size={15} />
+              </button>
+
+              {activeMenuId === comment.id && (
+                <div
+                  onClick={(e) => e.stopPropagation()}
+                  className="absolute right-0 top-full mt-1 w-32 bg-paper border border-rule rounded-xl shadow-lg py-1 z-20"
+                >
+                  <button
+                    onClick={() => handleStartEdit(comment)}
+                    className="w-full flex items-center gap-2 px-3 py-2 text-xs text-ink hover:bg-paper-dim text-left"
+                  >
+                    <Edit2 size={13} />
+                    Edit
+                  </button>
+                  <button
+                    onClick={() => handleDelete(comment.id)}
+                    disabled={isDeleting}
+                    className="w-full flex items-center gap-2 px-3 py-2 text-xs text-red hover:bg-red/10 text-left disabled:opacity-50"
+                  >
+                    <Trash2 size={13} />
+                    Delete
+                  </button>
+                </div>
+              )}
+            </div>
+          )}
+        </div>
+
+        {/* Comment Content / Edit Mode */}
+        {isEditing ? (
+          <div className="pt-1">
+            <textarea
+              value={editContent}
+              onChange={(e) => setEditContent(e.target.value)}
+              rows={3}
+              className="w-full bg-paper-dim/60 border border-rule rounded-xl p-2.5 text-xs text-ink placeholder:text-meta resize-none outline-none focus:border-ink"
+            />
+            <div className="flex items-center justify-end gap-2 mt-2">
+              <button
+                onClick={() => {
+                  setEditingId(null)
+                  setEditContent('')
+                }}
+                className="px-2.5 py-1 text-xs text-meta hover:text-ink rounded-lg"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={() => handleSaveEdit(comment.id)}
+                disabled={!editContent.trim() || isUpdating}
+                className="inline-flex items-center gap-1 px-3 py-1 text-xs bg-ink text-paper rounded-lg hover:bg-red transition-colors disabled:opacity-50"
+              >
+                {isUpdating ? (
+                  <Loader2 size={12} className="animate-spin" />
+                ) : (
+                  <Check size={12} />
+                )}
+                Save
+              </button>
+            </div>
+          </div>
+        ) : (
+          <p
+            className={`text-ink-soft leading-relaxed whitespace-pre-wrap ${
+              isReply ? 'text-[13px]' : 'text-[13.5px]'
+            }`}
+          >
+            {comment.content}
+          </p>
+        )}
+
+        {/* Reply action (all comments) + View replies (top-level only) */}
+        <div className="flex items-center gap-4 pt-1">
+          <button
+            onClick={() => startReply(comment.id)}
+            className="inline-flex items-center gap-1.5 text-[11px] font-medium text-meta hover:text-ink transition-colors"
+          >
+            <CornerDownRight size={13} />
+            Reply
+          </button>
+          {!isReply && replyCount > 0 && (
+            <button
+              onClick={() => toggleReplies(comment.id)}
+              className="inline-flex items-center gap-1.5 text-[11px] font-medium text-meta hover:text-ink transition-colors"
+            >
+              <MessageSquareReply size={13} />
+              {expandedReplies.has(comment.id)
+                ? 'Hide replies'
+                : `View ${replyCount} ${replyCount === 1 ? 'reply' : 'replies'}`}
+            </button>
+          )}
+        </div>
+
+        {/* Nested reply composer */}
+        {replyingTo === comment.id && (
+          <form
+            onSubmit={(e) => handleReplySubmit(e, comment.id)}
+            className="mt-2.5 rounded-xl border border-rule/80 bg-paper-dim/40 p-3 space-y-2"
+          >
+            {token ? (
+              <>
+                <textarea
+                  value={replyContent}
+                  onChange={(e) => setReplyContent(e.target.value)}
+                  rows={2}
+                  placeholder={`Reply to ${authorDisplayName}…`}
+                  autoFocus
+                  className="w-full bg-transparent text-[13px] text-ink placeholder:text-meta resize-none outline-none leading-relaxed"
+                />
+                {replyError && (
+                  <div className="flex items-center gap-2 text-red text-xs">
+                    <AlertCircle size={14} />
+                    <span>{replyError}</span>
+                  </div>
+                )}
+                <div className="flex items-center justify-end gap-2 pt-2 border-t border-rule/40">
+                  <button
+                    type="button"
+                    onClick={() => startReply(comment.id)}
+                    className="px-3 py-1 text-xs font-medium text-meta hover:text-ink transition-colors rounded-full"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="submit"
+                    disabled={!replyContent.trim() || replySubmitting}
+                    className="inline-flex items-center gap-1.5 px-4 py-1.5 text-xs font-medium bg-emerald-600 hover:bg-emerald-700 disabled:opacity-50 disabled:hover:bg-emerald-600 text-white rounded-full transition-all shadow-sm"
+                  >
+                    {replySubmitting ? (
+                      <>
+                        <Loader2 size={12} className="animate-spin" />
+                        <span>Posting…</span>
+                      </>
+                    ) : (
+                      <>
+                        <Send size={12} />
+                        <span>Reply</span>
+                      </>
+                    )}
+                  </button>
+                </div>
+              </>
+            ) : (
+              <div className="py-1 text-center">
+                <p className="text-xs text-ink-soft mb-2">Sign in to reply.</p>
+                <button
+                  type="button"
+                  onClick={() => navigate('/signin')}
+                  className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium bg-ink text-paper rounded-full hover:bg-red transition-colors"
+                >
+                  <LogIn size={13} />
+                  Sign in
+                </button>
+              </div>
+            )}
+          </form>
+        )}
+
+        {/* Nested replies list (top-level only) */}
+        {!isReply && expandedReplies.has(comment.id) && (
+          <div className="mt-2 space-y-0 pl-4 border-l border-rule/60">
+            {repliesByParent[comment.id]?.length ? (
+              repliesByParent[comment.id].map((reply) =>
+                renderCommentCard(reply, comment.id, true),
+              )
+            ) : (
+              <p className="text-[12px] text-meta py-1">No replies yet.</p>
+            )}
+          </div>
+        )}
+      </div>
+    )
+  }
 
   return (
     <AnimatePresence>
@@ -357,134 +660,7 @@ export default function CommentsDrawer({
                     </p>
                   </div>
                 ) : (
-                  comments.map((comment) => {
-                    const authorDisplayName =
-                      comment.author.name ||
-                      comment.author.username ||
-                      'Anonymous'
-                    const isOwner = user?.id === comment.author.id
-                    const isEditing = editingId === comment.id
-                    const isDeleting = deletingId === comment.id
-
-                    return (
-                      <div
-                        key={comment.id}
-                        className="py-4 border-b border-rule/60 last:border-b-0 space-y-2.5 transition-colors"
-                      >
-                        {/* Comment Header: Author & Options */}
-                        <div className="flex items-center justify-between">
-                          <div className="flex items-center gap-2.5">
-                            {comment.author.avatar ? (
-                              <img
-                                src={comment.author.avatar}
-                                alt={authorDisplayName}
-                                className="w-7 h-7 rounded-full object-cover"
-                              />
-                            ) : (
-                              <span className="w-7 h-7 rounded-full bg-ink/10 text-ink text-[11px] font-semibold flex items-center justify-center shrink-0">
-                                {authorDisplayName[0]?.toUpperCase()}
-                              </span>
-                            )}
-                            <div>
-                              <p className="text-xs font-semibold text-ink leading-none">
-                                {authorDisplayName}
-                              </p>
-                              <p className="text-[11px] text-meta mt-1">
-                                {formatTimeAgo(comment.createdAt)}
-                                {comment.updatedAt &&
-                                  comment.updatedAt !== comment.createdAt && (
-                                    <span className="ml-1 text-[10px] text-meta italic">
-                                      (edited)
-                                    </span>
-                                  )}
-                              </p>
-                            </div>
-                          </div>
-
-                          {/* Owner Actions Dropdown */}
-                          {isOwner && (
-                            <div className="relative">
-                              <button
-                                onClick={(e) => {
-                                  e.stopPropagation()
-                                  setActiveMenuId(
-                                    activeMenuId === comment.id
-                                      ? null
-                                      : comment.id,
-                                  )
-                                }}
-                                className="p-1 rounded-full text-meta hover:text-ink hover:bg-paper-dim transition-colors"
-                              >
-                                <MoreVertical size={15} />
-                              </button>
-
-                              {activeMenuId === comment.id && (
-                                <div
-                                  onClick={(e) => e.stopPropagation()}
-                                  className="absolute right-0 top-full mt-1 w-32 bg-paper border border-rule rounded-xl shadow-lg py-1 z-20"
-                                >
-                                  <button
-                                    onClick={() => handleStartEdit(comment)}
-                                    className="w-full flex items-center gap-2 px-3 py-2 text-xs text-ink hover:bg-paper-dim text-left"
-                                  >
-                                    <Edit2 size={13} />
-                                    Edit
-                                  </button>
-                                  <button
-                                    onClick={() => handleDelete(comment.id)}
-                                    disabled={isDeleting}
-                                    className="w-full flex items-center gap-2 px-3 py-2 text-xs text-red hover:bg-red/10 text-left disabled:opacity-50"
-                                  >
-                                    <Trash2 size={13} />
-                                    Delete
-                                  </button>
-                                </div>
-                              )}
-                            </div>
-                          )}
-                        </div>
-
-                        {/* Comment Content / Edit Mode */}
-                        {isEditing ? (
-                          <div className="pt-1">
-                            <textarea
-                              value={editContent}
-                              onChange={(e) => setEditContent(e.target.value)}
-                              rows={3}
-                              className="w-full bg-paper-dim/60 border border-rule rounded-xl p-2.5 text-xs text-ink placeholder:text-meta resize-none outline-none focus:border-ink"
-                            />
-                            <div className="flex items-center justify-end gap-2 mt-2">
-                              <button
-                                onClick={() => {
-                                  setEditingId(null)
-                                  setEditContent('')
-                                }}
-                                className="px-2.5 py-1 text-xs text-meta hover:text-ink rounded-lg"
-                              >
-                                Cancel
-                              </button>
-                              <button
-                                onClick={() => handleSaveEdit(comment.id)}
-                                disabled={!editContent.trim() || isUpdating}
-                                className="inline-flex items-center gap-1 px-3 py-1 text-xs bg-ink text-paper rounded-lg hover:bg-red transition-colors disabled:opacity-50"
-                              >
-                                {isUpdating ? (
-                                  <Loader2 size={12} className="animate-spin" />
-                                ) : (
-                                  <Check size={12} />
-                                )}
-                                Save
-                              </button>
-                            </div>
-                          </div>
-                        ) : (
-                          <p className="text-[13.5px] text-ink-soft leading-relaxed whitespace-pre-wrap">
-                            {comment.content}
-                          </p>
-                        )}
-                      </div>
-                    )
-                  })
+                  comments.map((comment) => renderCommentCard(comment, null))
                 )}
               </div>
             </div>

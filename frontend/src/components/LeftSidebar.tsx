@@ -1,17 +1,17 @@
+import { useEffect, useMemo, useState } from 'react'
 import { useLocation, useNavigate } from 'react-router-dom'
 import { motion, AnimatePresence } from 'framer-motion'
 import {
   Home,
   Bookmark,
   User,
-  FileText,
   BarChart2,
   Users,
   Plus,
-  Sparkles,
 } from 'lucide-react'
-import { useAtom, useAtomValue } from 'jotai'
+import { useAtom, useAtomValue, useSetAtom } from 'jotai'
 import { leftSidebarOpenAtom, mobileLeftSidebarOpenAtom } from '../store/ui'
+import { fetchFollowingAtom, type FollowUser } from '../store/engagement'
 
 const NAV_ITEMS = [
   { label: 'Home', icon: Home, path: '/home' },
@@ -20,36 +20,32 @@ const NAV_ITEMS = [
   { label: 'Stats', icon: BarChart2, path: '/stats' },
 ]
 
-const FOLLOWING_LIST = [
-  {
-    name: 'Medium Staff',
-    handle: '@mediumstaff',
-    hasUpdate: true,
-    avatarText: 'M',
-    badgeColor: 'bg-emerald-500',
-  },
-  {
-    name: "Let's Code Future",
-    handle: '@deepconcept',
-    hasUpdate: false,
-    avatarText: 'LC',
-  },
-  {
-    name: 'Programming Daily',
-    handle: '@progdaily',
-    hasUpdate: true,
-    avatarText: 'PD',
-    badgeColor: 'bg-emerald-500',
-  },
-]
-
 export default function LeftSidebar() {
   const navigate = useNavigate()
   const location = useLocation()
   const isOpen = useAtomValue(leftSidebarOpenAtom)
   const [mobileOpen, setMobileOpen] = useAtom(mobileLeftSidebarOpenAtom)
+  const fetchFollowing = useSetAtom(fetchFollowingAtom)
+
+  const [following, setFollowing] = useState<FollowUser[]>([])
+
+  useEffect(() => {
+    if (isOpen || mobileOpen) {
+      fetchFollowing().then(setFollowing)
+    }
+  }, [isOpen, mobileOpen, fetchFollowing])
 
   const onCloseMobile = () => setMobileOpen(false)
+
+  const goToProfile = (id: string) => {
+    navigate(`/profile/${id}`)
+    onCloseMobile()
+  }
+
+  const followingInitials = useMemo(
+    () => new Map(following.map((u) => [u.id, (u.name?.[0] || u.username?.[0] || 'U').toUpperCase()])),
+    [following],
+  )
 
   const content = (
     <div className="flex flex-col h-full py-6 px-4">
@@ -92,26 +88,32 @@ export default function LeftSidebar() {
         </div>
 
         <div className="space-y-1 mt-1">
-          {FOLLOWING_LIST.map((writer) => (
-            <button
-              key={writer.name}
-              onClick={() => {
-                navigate('/home')
-                onCloseMobile()
-              }}
-              className="w-full flex items-center justify-between px-3 py-2 rounded-lg text-left text-[14px] text-ink-soft hover:text-ink hover:bg-paper-dim/50 transition-colors group"
-            >
-              <div className="flex items-center gap-3 min-w-0">
-                <span className="w-6 h-6 rounded-full bg-ink/10 text-ink text-[11px] font-semibold flex items-center justify-center shrink-0">
-                  {writer.avatarText}
-                </span>
-                <span className="truncate">{writer.name}</span>
-              </div>
-              {writer.hasUpdate && (
-                <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 shrink-0" title="New stories" />
-              )}
-            </button>
-          ))}
+          {following.length === 0 ? (
+            <p className="px-3 py-2 text-[13px] text-meta">
+              Writers you follow will appear here.
+            </p>
+          ) : (
+            following.map((writer) => (
+              <button
+                key={writer.id}
+                onClick={() => goToProfile(writer.id)}
+                className="w-full flex items-center gap-3 px-3 py-2 rounded-lg text-left text-[14px] text-ink-soft hover:text-ink hover:bg-paper-dim/50 transition-colors group min-w-0"
+              >
+                {writer.avatar ? (
+                  <img
+                    src={writer.avatar}
+                    alt={writer.name || 'Writer'}
+                    className="w-6 h-6 rounded-full object-cover bg-ink/10 shrink-0"
+                  />
+                ) : (
+                  <span className="w-6 h-6 rounded-full bg-ink/10 text-ink text-[11px] font-semibold flex items-center justify-center shrink-0">
+                    {followingInitials.get(writer.id)}
+                  </span>
+                )}
+                <span className="truncate">{writer.name || writer.username || 'Writer'}</span>
+              </button>
+            ))
+          )}
         </div>
 
         {/* Find writers & suggestions */}

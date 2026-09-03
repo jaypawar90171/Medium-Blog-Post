@@ -54,6 +54,17 @@ engagementRouter.get('/comment/post/:id', zValidator('param', blogIdParams), asy
   return c.json({ comments })
 })
 
+// Fetch replies to a specific (parent) comment
+engagementRouter.get('/comment/:id/replies', zValidator('param', blogIdParams), async (c) => {
+  const { id } = c.req.valid('param')
+  const replies = await prisma.comment.findMany({
+    where: { parentId: id },
+    orderBy: { createdAt: 'asc' },
+    select: commentSelect,
+  })
+  return c.json({ replies })
+})
+
 engagementRouter.put('/comment',
   zValidator('json', updateCommentInput),
   async (c) => {

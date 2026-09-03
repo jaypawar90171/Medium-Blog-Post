@@ -141,7 +141,28 @@ export const fetchCommentsAtom = atom(
   },
 )
 
-// add a comment to a post
+// ---- Replies (nested comments) ----
+
+// repliesByParentIdAtom maps parent comment id -> its replies
+export const repliesByParentIdAtom = atom<Record<string, Comment[]>>({})
+
+// fetch replies for a parent comment
+export const fetchRepliesAtom = atom(
+  null,
+  async (get, set, { parentId }: { parentId: string }) => {
+    const token = get(tokenAtom)
+    try {
+      const res = await authedFetch(`${API_BASE}/comment/${parentId}/replies`, token)
+      const data = await handleResponse<{ replies: Comment[] }>(res)
+      set(repliesByParentIdAtom, (prev) => ({ ...prev, [parentId]: data.replies }))
+      return data.replies
+    } catch {
+      return []
+    }
+  },
+)
+
+// add a comment to a post (supports parentId for replies)
 export const addCommentAtom = atom(
   null,
   async (
@@ -157,9 +178,19 @@ export const addCommentAtom = atom(
     )
     const data = await handleResponse<CreateCommentResponse>(res)
 
-    // Prepend newly created comment to local state
-    const currentComments = get(commentsAtom)
-    set(commentsAtom, [data.comment, ...currentComments])
+    if (parentId) {
+      // It's a reply: append to the parent's replies map, and re-fetch replies in case
+      const currentReplies = get(repliesByParentIdAtom)
+      const existing = currentReplies[parentId] || []
+      set(repliesByParentIdAtom, {
+        ...currentReplies,
+        [parentId]: [...existing, data.comment],
+      })
+    } else {
+      // Top-level comment: prepend to comments list
+      const currentComments = get(commentsAtom)
+      set(commentsAtom, [data.comment, ...currentComments])
+    }
 
     // Update comment count in blogs list if present
     const blogs = get(blogsAtom)
@@ -197,6 +228,20 @@ export const updateCommentAtom = atom(
       ),
     )
 
+    // Update the reply in the replies map if present
+    const repliesMap = get(repliesByParentIdAtom)
+    const parentKey = Object.keys(repliesMap).find((k) =>
+      repliesMap[k].some((r) => r.id === id),
+    )
+    if (parentKey) {
+      set(repliesByParentIdAtom, {
+        ...repliesMap,
+        [parentKey]: repliesMap[parentKey].map((r) =>
+          r.id === id ? { ...r, content, updatedAt: new Date().toISOString() } : r,
+        ),
+      })
+    }
+
     return data
   },
 )
@@ -215,6 +260,19 @@ export const deleteCommentAtom = atom(
       commentsAtom,
       currentComments.filter((c) => c.id !== id),
     )
+
+    // Remove the reply from the replies map if present
+    const repliesMap = get(repliesByParentIdAtom)
+    const parentKey = Object.keys(repliesMap).find((k) =>
+      repliesMap[k].some((r) => r.id === id),
+    )
+    if (parentKey) {
+      set(repliesByParentIdAtom, {
+        ...repliesMap,
+        [parentKey]: repliesMap[parentKey]
+          .filter((r) => r.id !== id),
+      })
+    }
 
     // Decrement comment count in blogs list if postId provided
     if (postId) {
@@ -264,7 +322,7 @@ export const clapBlogAtom = atom(
 // returns total claps for a post
 export const fetchUserClapsAtom = atom(
   null,
-  async (get, set, { postId }: { postId: string }) => {
+  async (get, _set, { postId }: { postId: string }) => {
     const token = get(tokenAtom)
     const res = await authedFetch(
       `${API_BASE}/clap/post/${postId}`,
@@ -394,6 +452,28 @@ export const fetchFollowStatusAtom = atom(
       return await handleResponse<{ isFollowing: boolean }>(res)
     } catch {
       return { isFollowing: false }
+    }
+  },
+)
+
+export type FollowUser = {
+  id: string
+  name: string | null
+  username: string | null
+  avatar: string | null
+}
+
+export const fetchFollowingAtom = atom(
+  null,
+  async (get): Promise<FollowUser[]> => {
+    const token = get(tokenAtom)
+    if (!token) return []
+    try {
+      const res = await authedFetch(`${API_BASE}/follow/me`, token)
+      const data = await handleResponse<{ following: FollowUser[]; followers: FollowUser[] }>(res)
+      return data.following
+    } catch {
+      return []
     }
   },
 )
