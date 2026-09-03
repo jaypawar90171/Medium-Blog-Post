@@ -17,7 +17,6 @@ const NAV_ITEMS = [
   { label: 'Home', icon: Home, path: '/home' },
   { label: 'Library', icon: Bookmark, path: '/library' },
   { label: 'Profile', icon: User, path: '/profile' },
-  { label: 'Stories', icon: FileText, path: '/stories' },
   { label: 'Stats', icon: BarChart2, path: '/stats' },
 ]
 

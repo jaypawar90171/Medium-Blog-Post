@@ -4,18 +4,12 @@ import {
   Sun,
   Moon,
   Menu,
-  X,
-  Home,
   LogOut,
   PenSquare,
   User,
   PanelRight,
   PanelRightClose,
   Search,
-  Bookmark,
-  FileText,
-  BarChart2,
-  Smartphone,
 } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
 import { useTheme } from '../context/ThemeContext'
@@ -26,14 +20,15 @@ import { sidePanelOpenAtom, leftSidebarOpenAtom, mobileLeftSidebarOpenAtom } fro
 export default function HomeNavbar() {
   const [scrolled, setScrolled] = useState(false)
   const [searchQuery, setSearchQuery] = useState('')
+  const [menuOpen, setMenuOpen] = useState(false)
   const { theme, toggleTheme } = useTheme()
   const navigate = useNavigate()
   const user = useAtomValue(userAtom)
   const isAuthenticated = useAtomValue(isAuthenticatedAtom)
   const signOut = useSetAtom(signOutAtom)
   const [sidePanelOpen, setSidePanelOpen] = useAtom(sidePanelOpenAtom)
-  const [leftSidebarOpen, setLeftSidebarOpen] = useAtom(leftSidebarOpenAtom)
-  const [mobileLeftSidebarOpen, setMobileLeftSidebarOpen] = useAtom(mobileLeftSidebarOpenAtom)
+  const [, setLeftSidebarOpen] = useAtom(leftSidebarOpenAtom)
+  const [, setMobileLeftSidebarOpen] = useAtom(mobileLeftSidebarOpenAtom)
 
   useEffect(() => {
     const onScroll = () => setScrolled(window.scrollY > 8)
@@ -57,6 +52,17 @@ export default function HomeNavbar() {
     const term = searchQuery.trim()
     if (!term) return
     navigate(`/search?q=${encodeURIComponent(term)}`)
+  }
+
+  const handleLogout = () => {
+    setMenuOpen(false)
+    signOut()
+    navigate('/')
+  }
+
+  const goToProfile = () => {
+    setMenuOpen(false)
+    navigate('/profile')
   }
 
   return (
@@ -151,10 +157,11 @@ export default function HomeNavbar() {
 
           {/* User Auth state */}
           {isAuthenticated ? (
-            <div className="flex items-center gap-2.5">
+            <div className="relative flex items-center gap-2.5">
               <button
-                onClick={() => navigate('/profile')}
+                onClick={() => setMenuOpen((o) => !o)}
                 title="Profile"
+                aria-expanded={menuOpen}
                 className="w-9 h-9 rounded-full overflow-hidden border border-rule shadow-sm hover:opacity-90 transition-opacity flex items-center justify-center bg-red text-paper font-serif text-[15px] font-semibold"
               >
                 {user?.avatar ? (
@@ -167,6 +174,55 @@ export default function HomeNavbar() {
                   initial
                 )}
               </button>
+
+              {/* Dropdown menu */}
+              <AnimatePresence>
+                {menuOpen && (
+                  <>
+                    <motion.div
+                      initial={{ opacity: 0 }}
+                      animate={{ opacity: 1 }}
+                      exit={{ opacity: 0 }}
+                      onClick={() => setMenuOpen(false)}
+                      className="fixed inset-0 z-40"
+                    />
+                    <motion.div
+                      initial={{ opacity: 0, y: -8, scale: 0.98 }}
+                      animate={{ opacity: 1, y: 0, scale: 1 }}
+                      exit={{ opacity: 0, y: -8, scale: 0.98 }}
+                      transition={{ duration: 0.18, ease: 'easeOut' }}
+                      className="absolute right-0 top-12 z-50 w-56 bg-paper border border-rule rounded-xl shadow-xl overflow-hidden"
+                    >
+                      {/* User info */}
+                      <div className="px-4 py-3 border-b border-rule">
+                        <p className="text-[14px] font-medium text-ink truncate">
+                          {user?.name || user?.username || user?.email}
+                        </p>
+                        {user?.username && (
+                          <p className="text-[12px] text-meta truncate">@{user.username}</p>
+                        )}
+                      </div>
+
+                      <div className="p-1.5">
+                        <button
+                          onClick={goToProfile}
+                          className="w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-[13px] text-ink-soft hover:text-ink hover:bg-paper-dim transition-colors text-left"
+                        >
+                          <User size={15} className="text-meta" />
+                          <span>Profile</span>
+                        </button>
+                        <button
+                          onClick={handleLogout}
+                          className="w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-[13px] text-red hover:bg-red/5 transition-colors text-left"
+                        >
+                          <LogOut size={15} />
+                          <span>Log out</span>
+                        </button>
+                      </div>
+                    </motion.div>
+                  </>
+                )}
+              </AnimatePresence>
             </div>
           ) : (
             <div className="flex items-center gap-2">

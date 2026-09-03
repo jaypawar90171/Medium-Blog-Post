@@ -9,6 +9,7 @@ import Home from './screens/Home';
 import Search from './screens/Search';
 import BlogDetail from './screens/BlogDetail';
 import Profile from './screens/Profile';
+import Library from './screens/Library';
 import Toast from './components/Toast';
 
 const Write = lazy(() => import('./screens/Write'));
@@ -24,6 +25,7 @@ const App = () => {
           <Route path="/signin" element={<SignIn />} />
           <Route path="/signup" element={<Signup />} />
           <Route path="/home" element={<Home />} />
+          <Route path="/library" element={<Library />} />
           <Route path="/search" element={<Search />} />
           <Route path="/blog/:id" element={<BlogDetail />} />
           <Route
