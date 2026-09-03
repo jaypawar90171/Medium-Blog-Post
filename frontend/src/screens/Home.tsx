@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { motion } from 'framer-motion'
-import { ChevronLeft, ChevronRight, Loader2, BookOpen, X, Sparkles } from 'lucide-react'
+import { ChevronLeft, ChevronRight, Loader2, BookOpen } from 'lucide-react'
 import { useAtomValue, useSetAtom } from 'jotai'
 import HomeNavbar from '../components/HomeNavbar'
 import LeftSidebar from '../components/LeftSidebar'
@@ -15,29 +15,67 @@ import {
   currentPageAtom,
   fetchFeedAtom,
 } from '../store/blog'
+import {
+  forYouAtom,
+  forYouPaginationAtom,
+  forYouLoadingAtom,
+  forYouErrorAtom,
+  forYouPageAtom,
+  fetchForYouAtom,
+} from '../store/recommend'
 
 const TABS = ['For you', 'Featured']
 
 export default function Home() {
-  const blogs = useAtomValue(blogsAtom)
-  const pagination = useAtomValue(paginationAtom)
-  const loading = useAtomValue(feedLoadingAtom)
-  const error = useAtomValue(feedErrorAtom)
-  const currentPage = useAtomValue(currentPageAtom)
+  // Featured tab state
+  const featuredBlogs = useAtomValue(blogsAtom)
+  const featuredPagination = useAtomValue(paginationAtom)
+  const featuredLoading = useAtomValue(feedLoadingAtom)
+  const featuredError = useAtomValue(feedErrorAtom)
+  const featuredPage = useAtomValue(currentPageAtom)
   const fetchFeed = useSetAtom(fetchFeedAtom)
+
+  // For you tab state 
+  const forYouBlogs = useAtomValue(forYouAtom)
+  const forYouPagination = useAtomValue(forYouPaginationAtom)
+  const forYouLoading = useAtomValue(forYouLoadingAtom)
+  const forYouError = useAtomValue(forYouErrorAtom)
+  const forYouCurrentPage = useAtomValue(forYouPageAtom)
+  const fetchForYou = useSetAtom(fetchForYouAtom)
+
   const sidePanelOpen = useAtomValue(sidePanelOpenAtom)
 
   const [activeTab, setActiveTab] = useState('For you')
-  const [showBanner, setShowBanner] = useState(true)
-  const [page, setPage] = useState(1)
 
+  // Derived state based on active tab
+  const isForYou = activeTab === 'For you'
+  const blogs = isForYou ? forYouBlogs : featuredBlogs
+  const pagination = isForYou ? forYouPagination : featuredPagination
+  const loading = isForYou ? forYouLoading : featuredLoading
+  const error = isForYou ? forYouError : featuredError
+  const currentPage = isForYou ? forYouCurrentPage : featuredPage
+
+  // Fetch data when tab changes or page changes
   useEffect(() => {
-    fetchFeed({ page, pageSize: 8 })
-  }, [fetchFeed, page])
+    if (isForYou) {
+      fetchForYou({ page: currentPage, pageSize: 8 })
+    } else {
+      fetchFeed({ page: currentPage, pageSize: 8 })
+    }
+  }, [fetchForYou, fetchFeed, isForYou, currentPage])
+
+  // Reset to page 1 when switching tabs
+  const handleTabChange = (tab: string) => {
+    setActiveTab(tab)
+  }
 
   const goToPage = (next: number) => {
     if (next < 1 || next > pagination.totalPages) return
-    setPage(next)
+    if (isForYou) {
+      fetchForYou({ page: next, pageSize: 8 })
+    } else {
+      fetchFeed({ page: next, pageSize: 8 })
+    }
     window.scrollTo({ top: 0, behavior: 'smooth' })
   }
 
@@ -67,7 +105,7 @@ export default function Home() {
                   return (
                     <button
                       key={tab}
-                      onClick={() => setActiveTab(tab)}
+                      onClick={() => handleTabChange(tab)}
                       className={`relative pb-3 text-[14px] sm:text-[15px] font-medium transition-colors ${
                         isActive ? 'text-ink font-semibold' : 'text-meta hover:text-ink'
                       }`}
@@ -95,12 +133,18 @@ export default function Home() {
               {loading && blogs.length === 0 ? (
                 <div className="flex flex-col items-center justify-center py-24 text-meta">
                   <Loader2 size={28} className="animate-spin mb-3 text-ink-soft" />
-                  <p className="text-[15px]">Loading stories…</p>
+                  <p className="text-[15px]">
+                    {isForYou ? 'Personalizing your feed…' : 'Loading stories…'}
+                  </p>
                 </div>
               ) : blogs.length === 0 && !error ? (
                 <div className="flex flex-col items-center justify-center py-24 text-meta">
                   <BookOpen size={32} className="mb-3 text-meta" />
-                  <p className="text-[15px]">No stories published yet.</p>
+                  <p className="text-[15px]">
+                    {isForYou
+                      ? 'No recommendations yet. Clap or bookmark some stories to personalize your feed.'
+                      : 'No stories published yet.'}
+                  </p>
                 </div>
               ) : (
                 <>

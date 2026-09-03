@@ -8,6 +8,7 @@ import {
   blogIdParams,
 } from '../lib/schemas'
 import { authMiddleware } from '../middleware/auth'
+import { getRecommendations } from '../lib/recommender'
 
 export const blogRouter = new Hono<{ Variables: Variables }>()
 blogRouter.use('*', authMiddleware)
@@ -194,6 +195,38 @@ blogRouter.get('/bulk', async (c) => {
       totalPages: Math.ceil(total / pageSize),
     },
   })
+})
+
+blogRouter.get('/recommend', async (c) => {
+  const userId = c.get('userId')
+  const page = Math.max(1, parseInt(c.req.query('page') || '1', 10) || 1)
+  const pageSize = Math.min(
+    50,
+    Math.max(1, parseInt(c.req.query('pageSize') || '10', 10) || 10)
+  )
+
+  try {
+    const result = await getRecommendations(userId, page, pageSize)
+    return c.json(result)
+  } catch {
+    // Fault-tolerant degradation: fall back to /bulk behavior
+    const where: any = { published: true, authorId: { not: userId } }
+    const [blogs, total] = await Promise.all([
+      prisma.post.findMany({
+        where,
+        select: postPublicSelect,
+        orderBy: { createdAt: 'desc' },
+        skip: (page - 1) * pageSize,
+        take: pageSize,
+      }),
+      prisma.post.count({ where }),
+    ])
+    return c.json({
+      blogs,
+      pagination: { page, pageSize, total, totalPages: Math.ceil(total / pageSize) },
+      whoToFollow: [],
+    })
+  }
 })
 
 blogRouter.get('/mine', async (c) => {

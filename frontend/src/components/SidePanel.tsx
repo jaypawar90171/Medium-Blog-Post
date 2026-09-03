@@ -1,7 +1,16 @@
+import { useState, useCallback } from 'react'
 import { AnimatePresence, motion } from 'framer-motion'
-import { Hash, UserPlus } from 'lucide-react'
+import { Hash, UserPlus, Check } from 'lucide-react'
+import { useAtomValue, useSetAtom } from 'jotai'
+import { whoToFollowAtom } from '../store/recommend'
+import { followUserAtom, unfollowUserAtom } from '../store/engagement'
+import { blogsAtom } from '../store/blog'
+import { userAtom } from '../store/auth'
+import { showToastAtom } from '../store/ui'
 
-const TOPICS = [
+const FOOTER_LINKS = ['About', 'Help', 'Terms', 'Privacy', 'Careers', 'Text to speech']
+
+const FALLBACK_TOPICS = [
   'Writing',
   'Self Improvement',
   'Relationships',
@@ -12,16 +21,58 @@ const TOPICS = [
   'Design',
 ]
 
-const SUGGESTED = [
-  { name: 'Naomi Ruiz', handle: '@naomir', bio: 'Essays on craft & the writing life' },
-  { name: 'Devon Marsh', handle: '@devonm', bio: 'Editor, 400 drafts and counting' },
-  { name: 'Priya Anand', handle: '@priyaa', bio: 'Reporting on small, stubborn businesses' },
-  { name: 'Sam Whitfield', handle: '@samw', bio: 'On finishing things (finally)' },
-]
-
-const FOOTER_LINKS = ['About', 'Help', 'Terms', 'Privacy', 'Careers', 'Text to speech']
+function deriveTopicsFromBlogs(blogs: any[]): string[] {
+  const tagCounts = new Map<string, number>()
+  for (const blog of blogs) {
+    for (const t of blog.tags || []) {
+      const name = t.tag?.name
+      if (name) {
+        tagCounts.set(name, (tagCounts.get(name) || 0) + 1)
+      }
+    }
+  }
+  return Array.from(tagCounts.entries())
+    .sort((a, b) => b[1] - a[1])
+    .slice(0, 8)
+    .map(([name]) => name)
+}
 
 export default function SidePanel({ open }: { open: boolean }) {
+  const whoToFollow = useAtomValue(whoToFollowAtom)
+  const blogs = useAtomValue(blogsAtom)
+  const currentUser = useAtomValue(userAtom)
+  const followUser = useSetAtom(followUserAtom)
+  const unfollowUser = useSetAtom(unfollowUserAtom)
+  const showToast = useSetAtom(showToastAtom)
+
+  const [followedIds, setFollowedIds] = useState<Set<string>>(new Set())
+
+  const topics = deriveTopicsFromBlogs(blogs)
+  const displayTopics = topics.length > 0 ? topics : FALLBACK_TOPICS
+
+  const handleFollow = useCallback(
+    async (userId: string, isCurrentlyFollowed: boolean) => {
+      try {
+        if (isCurrentlyFollowed) {
+          await unfollowUser({ userId })
+          setFollowedIds((prev) => {
+            const next = new Set(prev)
+            next.delete(userId)
+            return next
+          })
+          showToast({ message: 'Unfollowed', type: 'info' })
+        } else {
+          await followUser({ userId })
+          setFollowedIds((prev) => new Set(prev).add(userId))
+          showToast({ message: 'Following!', type: 'success' })
+        }
+      } catch {
+        showToast({ message: 'Action failed', type: 'error' })
+      }
+    },
+    [followUser, unfollowUser, showToast],
+  )
+
   return (
     <AnimatePresence>
       {open && (
@@ -37,7 +88,7 @@ export default function SidePanel({ open }: { open: boolean }) {
             <div className="mb-8">
               <h3 className="text-[13px] font-medium text-ink mb-3">Recommended topics</h3>
               <div className="flex flex-wrap gap-2">
-                {TOPICS.map((topic) => (
+                {displayTopics.map((topic) => (
                   <button
                     key={topic}
                     className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-full border border-rule text-[13px] text-ink-soft hover:border-ink hover:text-ink transition-colors"
@@ -53,25 +104,62 @@ export default function SidePanel({ open }: { open: boolean }) {
             <div className="mb-8">
               <h3 className="text-[13px] font-medium text-ink mb-3">Who to follow</h3>
               <div className="space-y-4">
-                {SUGGESTED.map((person) => (
-                  <div key={person.handle} className="flex items-center gap-3">
-                    <span className="w-9 h-9 rounded-full bg-red/15 text-red flex items-center justify-center font-medium shrink-0">
-                      {person.name[0]}
-                    </span>
-                    <div className="min-w-0 flex-1">
-                      <p className="text-[14px] text-ink truncate font-medium">{person.name}</p>
-                      <p className="text-[12px] text-meta truncate">{person.bio}</p>
-                    </div>
-                    <motion.button
-                      whileHover={{ scale: 1.05 }}
-                      whileTap={{ scale: 0.95 }}
-                      className="inline-flex items-center gap-1 text-[13px] text-red hover:text-red-dim transition-colors"
-                    >
-                      <UserPlus size={14} />
-                      Follow
-                    </motion.button>
-                  </div>
-                ))}
+                {whoToFollow.length > 0 ? (
+                  whoToFollow
+                    .filter((person) => person.id !== currentUser?.id)
+                    .map((person) => {
+                      const isFollowed = followedIds.has(person.id)
+                      return (
+                        <div key={person.id} className="flex items-center gap-3">
+                          {person.avatar ? (
+                            <img
+                              src={person.avatar}
+                              alt={person.name || ''}
+                              className="w-9 h-9 rounded-full object-cover shrink-0"
+                            />
+                          ) : (
+                            <span className="w-9 h-9 rounded-full bg-red/15 text-red flex items-center justify-center font-medium shrink-0 text-[14px]">
+                              {(person.name || person.username || '?')[0].toUpperCase()}
+                            </span>
+                          )}
+                          <div className="min-w-0 flex-1">
+                            <p className="text-[14px] text-ink truncate font-medium">
+                              {person.name || person.username}
+                            </p>
+                            <p className="text-[12px] text-meta truncate">
+                              {person.mutualCount > 0
+                                ? `${person.mutualCount} mutual follower${person.mutualCount > 1 ? 's' : ''}`
+                                : person.bio || (person.username ? `@${person.username}` : '')}
+                            </p>
+                          </div>
+                          <motion.button
+                            onClick={() => handleFollow(person.id, isFollowed)}
+                            whileHover={{ scale: 1.05 }}
+                            whileTap={{ scale: 0.95 }}
+                            className={`inline-flex items-center gap-1 text-[13px] transition-colors ${
+                              isFollowed
+                                ? 'text-meta'
+                                : 'text-red hover:text-red-dim'
+                            }`}
+                          >
+                            {isFollowed ? (
+                              <>
+                                <Check size={14} />
+                                Following
+                              </>
+                            ) : (
+                              <>
+                                <UserPlus size={14} />
+                                Follow
+                              </>
+                            )}
+                          </motion.button>
+                        </div>
+                      )
+                    })
+                ) : (
+                  <p className="text-[13px] text-meta">Follow people to see suggestions here.</p>
+                )}
               </div>
             </div>
 
