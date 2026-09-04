@@ -21,10 +21,18 @@ import {
   Highlighter,
   Minus,
   Eraser,
+  Sparkles,
+  PenLine,
+  Type,
 } from 'lucide-react'
+import type { AIAction } from '../../lib/aiService'
 
 interface EditorToolbarProps {
   editor: Editor | null
+  onAIAction?: (action: AIAction) => void
+  onSuggestTitle?: () => void
+  onSuggestTags?: () => void
+  onCustomPrompt?: () => void
 }
 
 function ToolbarButton({
@@ -62,9 +70,11 @@ function Divider() {
   return <span className="w-px h-5 bg-rule mx-1 shrink-0" />
 }
 
-export default function EditorToolbar({ editor }: EditorToolbarProps) {
+export default function EditorToolbar({ editor, onAIAction, onSuggestTitle, onSuggestTags, onCustomPrompt }: EditorToolbarProps) {
   const [, forceUpdate] = useState(0)
   const fileRef = useRef<HTMLInputElement>(null)
+  const [aiOpen, setAiOpen] = useState(false)
+  const aiRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
     if (!editor) return
@@ -74,6 +84,17 @@ export default function EditorToolbar({ editor }: EditorToolbarProps) {
       editor.off('transaction', handleTransaction)
     }
   }, [editor])
+
+  useEffect(() => {
+    if (!aiOpen) return
+    const handleClick = (e: MouseEvent) => {
+      if (aiRef.current && !aiRef.current.contains(e.target as Node)) {
+        setAiOpen(false)
+      }
+    }
+    document.addEventListener('mousedown', handleClick)
+    return () => document.removeEventListener('mousedown', handleClick)
+  }, [aiOpen])
 
   const setLink = useCallback(() => {
     if (!editor) return
@@ -260,6 +281,55 @@ export default function EditorToolbar({ editor }: EditorToolbarProps) {
       >
         <Eraser size={16} />
       </ToolbarButton>
+
+      <Divider />
+
+      {/* AI Button */}
+      <div className="relative" ref={aiRef}>
+        <ToolbarButton
+          onClick={() => setAiOpen(!aiOpen)}
+          title="AI Assistant"
+        >
+          <Sparkles size={16} />
+        </ToolbarButton>
+        {aiOpen && (
+          <div className="absolute top-full left-0 mt-1 z-50 w-56 rounded-xl border border-rule bg-paper/95 backdrop-blur-xl shadow-lg py-1 overflow-hidden">
+            <button
+              type="button"
+              onClick={() => { onAIAction?.('continue_writing'); setAiOpen(false) }}
+              className="w-full flex items-center gap-2.5 px-3 py-2 text-left text-[13px] text-ink-soft hover:bg-paper-dim hover:text-ink transition-colors"
+            >
+              <PenLine size={15} className="text-red shrink-0" />
+              Continue Writing
+            </button>
+            <button
+              type="button"
+              onClick={() => { onCustomPrompt?.(); setAiOpen(false) }}
+              className="w-full flex items-center gap-2.5 px-3 py-2 text-left text-[13px] text-ink-soft hover:bg-paper-dim hover:text-ink transition-colors"
+            >
+              <Type size={15} className="text-red shrink-0" />
+              Custom Prompt
+            </button>
+            <div className="mx-3 my-1 border-t border-rule" />
+            <button
+              type="button"
+              onClick={() => { onSuggestTitle?.(); setAiOpen(false) }}
+              className="w-full flex items-center gap-2.5 px-3 py-2 text-left text-[13px] text-ink-soft hover:bg-paper-dim hover:text-ink transition-colors"
+            >
+              <Sparkles size={15} className="text-red shrink-0" />
+              Suggest Title
+            </button>
+            <button
+              type="button"
+              onClick={() => { onSuggestTags?.(); setAiOpen(false) }}
+              className="w-full flex items-center gap-2.5 px-3 py-2 text-left text-[13px] text-ink-soft hover:bg-paper-dim hover:text-ink transition-colors"
+            >
+              <Sparkles size={15} className="text-red shrink-0" />
+              Suggest Tags
+            </button>
+          </div>
+        )}
+      </div>
 
       <Divider />
 

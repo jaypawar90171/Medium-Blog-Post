@@ -373,3 +373,48 @@ html.dark *::after {
 .tiptap-editor .node-image-resizer {
   outline: 2px solid rgb(var(--color-red));
 }
+
+/* ============================================================
+   AI Components
+   ============================================================ */
+
+.ai-slash-menu {
+  box-shadow:
+    0 4px 6px -1px rgb(0 0 0 / 0.1),
+    0 2px 4px -2px rgb(0 0 0 / 0.1),
+    0 0 0 1px rgb(var(--color-rule) / 0.5);
+}
+
+.ai-bubble-menu {
+  box-shadow:
+    0 4px 6px -1px rgb(0 0 0 / 0.1),
+    0 2px 4px -2px rgb(0 0 0 / 0.1);
+}
+
+.ai-response-panel {
+  box-shadow:
+    0 0 0 1px rgb(var(--color-rule) / 0.6),
+    0 4px 12px -2px rgb(0 0 0 / 0.08);
+}
+
+.dark .ai-slash-menu,
+.dark .ai-bubble-menu,
+.dark .ai-response-panel {
+  box-shadow:
+    0 4px 6px -1px rgb(0 0 0 / 0.3),
+    0 2px 4px -2px rgb(0 0 0 / 0.2),
+    0 0 0 1px rgb(var(--color-rule) / 0.3);
+}
+
+@keyframes ai-typing-bounce {
+  0%, 80%, 100% {
+    transform: translateY(0);
+  }
+  40% {
+    transform: translateY(-4px);
+  }
+}
+
+.ai-sparkle span {
+  animation: ai-typing-bounce 1.2s ease-in-out infinite;
+}

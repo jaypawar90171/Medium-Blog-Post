@@ -4,7 +4,8 @@ import { z } from 'zod'
 import { prisma, type Variables } from '../lib/prisma'
 import { authMiddleware } from '../middleware/auth'
 import { AI_PROMPTS } from '../lib/aiPrompts'
-import { groq } from '../lib/groq'
+
+const GROQ_API_URL = 'https://api.groq.com/openai/v1/chat/completions'
 
 const suggestTitleSchema = z.object({
     content: z.string().min(1, 'Content is required'),
@@ -28,6 +29,41 @@ const generateSchema = z.object({
     tone: z.string().optional(),
 })
 
+async function groqChat(messages: { role: string; content: string }[], options?: { temperature?: number; max_tokens?: number; stream?: boolean }) {
+    const res = await fetch(GROQ_API_URL, {
+        method: 'POST',
+        headers: {
+            'Authorization': `Bearer ${process.env.GROQ_API_KEY}`,
+            'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+            model: process.env.GROQ_MODEL || 'llama-3.3-70b-versatile',
+            messages,
+            temperature: options?.temperature ?? 0.7,
+            max_tokens: options?.max_tokens ?? 1024,
+            stream: options?.stream ?? false,
+        }),
+    })
+
+    if (res.status === 429) {
+        throw new HttpError(429, 'AI is busy, please try again later')
+    }
+
+    if (!res.ok) {
+        const errorText = await res.text()
+        console.error('Groq API error:', res.status, errorText)
+        throw new HttpError(500, 'Failed to connect to AI service')
+    }
+
+    return res
+}
+
+class HttpError extends Error {
+    constructor(public statusCode: number, message: string) {
+        super(message)
+    }
+}
+
 export const aiRouter = new Hono<{ Variables: Variables }>()
 aiRouter.use('*', authMiddleware)
 
@@ -49,31 +85,69 @@ aiRouter.post('/generate', zValidator('json', generateSchema), async (c) => {
         userMessage = selectedText || ''
     }
 
-    const stream = await groq.chat.completions.create({
-        model: process.env.GROQ_MODEL!,
-        messages: [
-            { role: 'system', content: systemPrompt },
-            { role: 'user', content: userMessage },
-        ],
-        stream: true,
-        temperature: 0.7,
-        max_tokens: 1024,
-    })
+    let groqRes: Response
+    try {
+        groqRes = await groqChat(
+            [
+                { role: 'system', content: systemPrompt },
+                { role: 'user', content: userMessage },
+            ],
+            { stream: true },
+        )
+    } catch (err) {
+        if (err instanceof HttpError) {
+            return c.json({ error: err.message }, err.statusCode as any)
+        }
+        return c.json({ error: 'Failed to connect to AI service' }, 500)
+    }
 
+    if (!groqRes.body) {
+        return c.json({ error: 'Empty response from AI service' }, 500)
+    }
+
+    const reader = groqRes.body.getReader()
+    const decoder = new TextDecoder()
     const encoder = new TextEncoder()
+
     const readable = new ReadableStream({
         async start(controller) {
             try {
-                for await (const chunk of stream) {
-                    const content = chunk.choices[0]?.delta?.content
-                    if (content) {
-                        controller.enqueue(encoder.encode(`data: ${JSON.stringify({ content })}\n\n`))
+                let buffer = ''
+                while (true) {
+                    const { done, value } = await reader.read()
+                    if (done) break
+
+                    buffer += decoder.decode(value, { stream: true })
+                    const lines = buffer.split('\n')
+                    buffer = lines.pop() || ''
+
+                    for (const line of lines) {
+                        const trimmed = line.trim()
+                        if (!trimmed || !trimmed.startsWith('data: ')) continue
+                        const data = trimmed.slice(6)
+                        if (data === '[DONE]') {
+                            controller.enqueue(encoder.encode('data: [DONE]\n\n'))
+                            controller.close()
+                            return
+                        }
+                        try {
+                            const parsed = JSON.parse(data)
+                            const content = parsed.choices?.[0]?.delta?.content
+                            if (content) {
+                                controller.enqueue(encoder.encode(`data: ${JSON.stringify({ content })}\n\n`))
+                            }
+                        } catch {
+                            // skip malformed JSON lines
+                        }
                     }
                 }
                 controller.enqueue(encoder.encode('data: [DONE]\n\n'))
                 controller.close()
             } catch (err) {
-                controller.enqueue(encoder.encode(`data: ${JSON.stringify({ error: 'Stream interrupted' })}\n\n`))
+                console.error('Stream error:', err)
+                try {
+                    controller.enqueue(encoder.encode(`data: ${JSON.stringify({ error: 'Stream interrupted' })}\n\n`))
+                } catch { /* already closed */ }
                 controller.close()
             }
         },
@@ -91,64 +165,59 @@ aiRouter.post('/generate', zValidator('json', generateSchema), async (c) => {
 aiRouter.post('/suggest-title', zValidator('json', suggestTitleSchema), async (c) => {
     const { content } = c.req.valid('json')
 
-    const groqRes = await groq.chat.completions.create({
-        model: process.env.GROQ_MODEL!,
-        messages: [
+    const groqRes = await groqChat(
+        [
             { role: 'system', content: AI_PROMPTS.suggest_title },
             { role: 'user', content },
         ],
-        temperature: 0.7,
-        max_tokens: 256,
-    })
+        { max_tokens: 256 },
+    )
 
-    const raw = groqRes.choices[0].message.content || "[]";
+    const data = await groqRes.json() as { choices: { message: { content: string } }[] }
+    const raw = data.choices?.[0]?.message?.content || '[]'
 
     try {
-        const suggestions = JSON.parse(raw);
+        const suggestions = JSON.parse(raw)
         if (!Array.isArray(suggestions)) {
-            return c.json({ suggestions: [raw] });
+            return c.json({ suggestions: [raw] })
         }
-        return c.json({ suggestions: suggestions.slice(0, 5) });
+        return c.json({ suggestions: suggestions.slice(0, 5) })
     } catch {
         const suggestions = raw
-            .split("\n")
-            .map((line: string) => line.replace(/^\d+[\.\)]\s*/, "").replace(/^["']|["']$/g, "").trim())
+            .split('\n')
+            .map((line: string) => line.replace(/^\d+[\.\)]\s*/, '').replace(/^["']|["']$/g, '').trim())
             .filter((line: string) => line.length > 0)
-            .slice(0, 5);
-
-        return c.json({ suggestions });
+            .slice(0, 5)
+        return c.json({ suggestions })
     }
 })
 
 aiRouter.post('/suggest-tags', zValidator('json', suggestTitleSchema), async (c) => {
-    const userId = c.get('userId')
     const { content } = c.req.valid('json')
 
-    const groqRes = await groq.chat.completions.create({
-        model: process.env.GROQ_MODEL!,
-        messages: [
+    const groqRes = await groqChat(
+        [
             { role: 'system', content: AI_PROMPTS.suggest_tags },
             { role: 'user', content },
         ],
-        temperature: 0.7,
-        max_tokens: 256,
-    })
+        { max_tokens: 256 },
+    )
 
-    const raw = groqRes.choices[0].message.content || "[]";
+    const data = await groqRes.json() as { choices: { message: { content: string } }[] }
+    const raw = data.choices?.[0]?.message?.content || '[]'
 
     try {
-        const suggestions = JSON.parse(raw);
+        const suggestions = JSON.parse(raw)
         if (!Array.isArray(suggestions)) {
-            return c.json({ suggestions: [raw] });
+            return c.json({ suggestions: [raw] })
         }
-        return c.json({ suggestions: suggestions.slice(0, 5) });
+        return c.json({ suggestions: suggestions.slice(0, 5) })
     } catch {
         const suggestions = raw
-            .split("\n")
-            .map((line: string) => line.replace(/^\d+[\.\)]\s*/, "").replace(/^["']|["']$/g, "").trim())
+            .split('\n')
+            .map((line: string) => line.replace(/^\d+[\.\)]\s*/, '').replace(/^["']|["']$/g, '').trim())
             .filter((line: string) => line.length > 0)
-            .slice(0, 5);
-
-        return c.json({ suggestions });
+            .slice(0, 5)
+        return c.json({ suggestions })
     }
 })

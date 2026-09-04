@@ -1,6 +1,6 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useNavigate, useParams, Link } from 'react-router-dom'
-import { useEditor, EditorContent } from '@tiptap/react'
+import { useEditor, EditorContent, type Editor } from '@tiptap/react'
 import StarterKit from '@tiptap/starter-kit'
 import Image from '@tiptap/extension-image'
 import LinkExtension from '@tiptap/extension-link'
@@ -33,7 +33,18 @@ import {
   unpublishBlogAtom,
 } from '../store/blog'
 import { showToastAtom } from '../store/ui'
+import {
+  aiLoadingAtom,
+  aiResponseAtom,
+  aiErrorAtom,
+  aiPanelVisibleAtom,
+  aiActionAtom,
+} from '../store/ai'
+import { streamAIResponse, suggestTitles, suggestTags, type AIAction } from '../lib/aiService'
 import EditorToolbar from '../components/editor/EditorToolbar'
+import AIResponsePanel from '../components/editor/AIResponsePanel'
+import AIBubbleMenu from '../components/editor/AIBubbleMenu'
+import { createSlashCommandExtension } from '../components/editor/SlashCommandExtension'
 import HomeNavbar from '../components/HomeNavbar'
 
 const MAX_TAGS = 10
@@ -52,6 +63,11 @@ export default function Write() {
   const unpublishBlog = useSetAtom(unpublishBlogAtom)
   const fetchBlogById = useSetAtom(fetchBlogByIdAtom)
   const showToast = useSetAtom(showToastAtom)
+  const setAiLoading = useSetAtom(aiLoadingAtom)
+  const setAiResponse = useSetAtom(aiResponseAtom)
+  const setAiError = useSetAtom(aiErrorAtom)
+  const setAiPanelVisible = useSetAtom(aiPanelVisibleAtom)
+  const setAiAction = useSetAtom(aiActionAtom)
 
   const isEdit = Boolean(id)
 
@@ -65,6 +81,138 @@ export default function Write() {
   const [saving, setSaving] = useState(false)
   const [published, setPublished] = useState(false)
   const [editorInitialized, setEditorInitialized] = useState(!isEdit)
+  const [titleSuggestions, setTitleSuggestions] = useState<string[]>([])
+  const [showTitleSuggestions, setShowTitleSuggestions] = useState(false)
+  const [titleSuggestionsLoading, setTitleSuggestionsLoading] = useState(false)
+  const [customPromptInput, setCustomPromptInput] = useState('')
+  const [showCustomPrompt, setShowCustomPrompt] = useState(false)
+
+  const editorRef = useRef<Editor | null>(null)
+  const aiActionRef = useRef<AIAction | null>(null)
+  const currentAiAction = useAtomValue(aiActionAtom)
+  useEffect(() => {
+    aiActionRef.current = currentAiAction
+  }, [currentAiAction])
+
+  const handleAIAction = useCallback(
+    async (action: AIAction, selectedText?: string, tone?: string, customPrompt?: string) => {
+      if (!token) return
+      const ed = editorRef.current
+      const { from, to } = ed?.state.selection ?? { from: 0, to: 0 }
+      const hasSelection = from !== to
+      const textBefore = ed?.state.doc.textBetween(
+        Math.max(0, from - 500),
+        from,
+        ' ',
+      )
+      const textAfter = ed?.state.doc.textBetween(
+        to,
+        Math.min(ed?.state.doc.content.size ?? 0, to + 500),
+        ' ',
+      )
+
+      setAiAction(action)
+      setAiLoading(true)
+      setAiResponse('')
+      setAiError(null)
+      setAiPanelVisible(true)
+
+      try {
+        const stream = streamAIResponse(
+          {
+            action,
+            selectedText: selectedText || (hasSelection ? ed?.state.doc.textBetween(from, to, ' ') : undefined),
+            contextBefore: textBefore,
+            contextAfter: textAfter,
+            tone,
+            customPrompt,
+          },
+          token,
+        )
+
+        let accumulated = ''
+        for await (const chunk of stream) {
+          accumulated += chunk
+          setAiResponse(accumulated)
+        }
+      } catch (e) {
+        setAiError((e as Error).message || 'AI request failed')
+      } finally {
+        setAiLoading(false)
+      }
+    },
+    [token, setAiAction, setAiLoading, setAiResponse, setAiError, setAiPanelVisible],
+  )
+
+  const handleRegenerate = useCallback(() => {
+    const action = aiActionRef.current
+    if (action) {
+      handleAIAction(action)
+    }
+  }, [handleAIAction])
+
+  const handleCustomPromptOpen = useCallback(() => {
+    setShowCustomPrompt(true)
+    setCustomPromptInput('')
+  }, [])
+
+  const handleCustomPromptSubmit = useCallback(() => {
+    if (!customPromptInput.trim()) return
+    setShowCustomPrompt(false)
+    handleAIAction('custom', undefined, undefined, customPromptInput.trim())
+    setCustomPromptInput('')
+  }, [customPromptInput, handleAIAction])
+  const handleSuggestTitle = useCallback(async () => {
+    if (!token) return
+    const ed = editorRef.current
+    const content = ed?.getText() || ''
+    if (!content.trim()) {
+      showToast({ message: 'Write some content first', type: 'error' })
+      return
+    }
+    setTitleSuggestionsLoading(true)
+    setShowTitleSuggestions(true)
+    try {
+      const suggestions = await suggestTitles(content, token)
+      setTitleSuggestions(suggestions)
+    } catch (e) {
+      showToast({ message: (e as Error).message || 'Failed to suggest titles', type: 'error' })
+      setShowTitleSuggestions(false)
+    } finally {
+      setTitleSuggestionsLoading(false)
+    }
+  }, [token, showToast])
+
+  // Suggest tags handler
+  const handleSuggestTags = useCallback(async () => {
+    if (!token) return
+    const ed = editorRef.current
+    const content = ed?.getText() || ''
+    if (!content.trim()) {
+      showToast({ message: 'Write some content first', type: 'error' })
+      return
+    }
+    try {
+      const suggestions = await suggestTags(content, token)
+      const newTags = suggestions.filter((t) => !tags.includes(t)).slice(0, MAX_TAGS - tags.length)
+      if (newTags.length > 0) {
+        setTags((prev) => [...prev, ...newTags])
+        showToast({ message: `Added ${newTags.length} tag(s)`, type: 'success' })
+      } else {
+        showToast({ message: 'No new tags to add', type: 'info' })
+      }
+    } catch (e) {
+      showToast({ message: (e as Error).message || 'Failed to suggest tags', type: 'error' })
+    }
+  }, [token, tags, showToast])
+
+  const slashExt = useMemo(
+    () =>
+      createSlashCommandExtension({
+        onSelectAI: (action: AIAction) => handleAIAction(action),
+      }),
+    [handleAIAction],
+  )
 
   const editor = useEditor({
     immediatelyRender: false,
@@ -96,6 +244,7 @@ export default function Write() {
       CharacterCount.configure({ limit: 100000 }),
       TaskList,
       TaskItem.configure({ nested: true }),
+      slashExt,
     ],
     editorProps: {
       attributes: {
@@ -104,12 +253,17 @@ export default function Write() {
     },
   })
 
+  // Keep editorRef in sync
+  useEffect(() => {
+    editorRef.current = editor
+  }, [editor])
+
   // Load data when editing the blog
   useEffect(() => {
     if (!token) return
     if (!isEdit) return
     if (!id) return
-  
+
     let cancelled = false
     fetchBlogById(id).then((blog) => {
       if (cancelled || !blog) return
@@ -401,14 +555,123 @@ export default function Write() {
               onChange={(e) => setTitle(e.target.value)}
               onKeyDown={handleTitleKeyDown}
               placeholder="Title"
-              className="w-full bg-transparent outline-none font-serif font-bold text-3xl sm:text-5xl text-ink placeholder:text-meta/70 pb-4 leading-tight"
+              maxLength={200}
+              className="w-full bg-transparent outline-none font-serif font-bold text-3xl sm:text-5xl text-ink placeholder:text-meta/70 pb-4 leading-tight overflow-hidden text-ellipsis"
               aria-label="Story title"
             />
 
+            {/* Title suggestions dropdown */}
+            <AnimatePresence>
+              {showTitleSuggestions && (
+                <motion.div
+                  initial={{ opacity: 0, y: -4, height: 0 }}
+                  animate={{ opacity: 1, y: 0, height: 'auto' }}
+                  exit={{ opacity: 0, y: -4, height: 0 }}
+                  transition={{ duration: 0.15 }}
+                  className="overflow-hidden mb-4"
+                >
+                  <div className="rounded-xl border border-rule bg-paper-dim/80 backdrop-blur-md p-3">
+                    <div className="flex items-center justify-between mb-2">
+                      <span className="text-[13px] font-medium text-ink">Suggested Titles</span>
+                      <button
+                        type="button"
+                        onClick={() => setShowTitleSuggestions(false)}
+                        className="text-meta hover:text-red text-[13px] transition-colors"
+                      >
+                        ✕
+                      </button>
+                    </div>
+                    {titleSuggestionsLoading ? (
+                      <div className="flex items-center gap-2 py-2">
+                        <div className="flex gap-1">
+                          <span className="w-1.5 h-1.5 rounded-full bg-red animate-bounce" style={{ animationDelay: '0ms' }} />
+                          <span className="w-1.5 h-1.5 rounded-full bg-red animate-bounce" style={{ animationDelay: '150ms' }} />
+                          <span className="w-1.5 h-1.5 rounded-full bg-red animate-bounce" style={{ animationDelay: '300ms' }} />
+                        </div>
+                        <span className="text-[13px] text-meta">Generating titles…</span>
+                      </div>
+                    ) : (
+                      <div className="flex flex-col gap-1">
+                        {titleSuggestions.map((suggestion, i) => (
+                          <button
+                            key={i}
+                            type="button"
+                            onClick={() => {
+                              setTitle(suggestion)
+                              setShowTitleSuggestions(false)
+                            }}
+                            className="text-left px-3 py-2 rounded-lg text-[14px] text-ink-soft hover:text-ink hover:bg-paper/60 transition-colors leading-snug"
+                          >
+                            {suggestion}
+                          </button>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                </motion.div>
+              )}
+            </AnimatePresence>
+
             {/* Editor body */}
-            <div className="pt-4">
-              <EditorToolbar editor={editor} />
+            <div className="pt-4 relative">
+              <EditorToolbar
+                editor={editor}
+                onAIAction={(action) => handleAIAction(action)}
+                onSuggestTitle={handleSuggestTitle}
+                onSuggestTags={handleSuggestTags}
+                onCustomPrompt={handleCustomPromptOpen}
+              />
+              {editor && (
+                <AIBubbleMenu
+                  editor={editor}
+                  onAIAction={(action, selectedText, tone) => handleAIAction(action, selectedText, tone)}
+                />
+              )}
               <EditorContent editor={editor} />
+
+              {/* Custom prompt input */}
+              <AnimatePresence>
+                {showCustomPrompt && (
+                  <motion.div
+                    initial={{ opacity: 0, y: -4, height: 0 }}
+                    animate={{ opacity: 1, y: 0, height: 'auto' }}
+                    exit={{ opacity: 0, y: -4, height: 0 }}
+                    transition={{ duration: 0.15 }}
+                    className="overflow-hidden"
+                  >
+                    <div className="mt-3 flex items-center gap-2 rounded-xl border border-rule bg-paper-dim/80 backdrop-blur-md p-2">
+                      <input
+                        value={customPromptInput}
+                        onChange={(e) => setCustomPromptInput(e.target.value)}
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter') handleCustomPromptSubmit()
+                          if (e.key === 'Escape') setShowCustomPrompt(false)
+                        }}
+                        placeholder="Ask AI anything about your content…"
+                        autoFocus
+                        className="flex-1 bg-transparent outline-none text-[14px] text-ink placeholder:text-meta px-2"
+                      />
+                      <button
+                        type="button"
+                        onClick={handleCustomPromptSubmit}
+                        disabled={!customPromptInput.trim()}
+                        className="px-3 py-1.5 rounded-lg bg-ink text-paper text-[13px] font-medium hover:bg-red transition-colors disabled:opacity-40"
+                      >
+                        Ask
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setShowCustomPrompt(false)}
+                        className="px-2 py-1.5 rounded-lg text-[13px] text-meta hover:text-red transition-colors"
+                      >
+                        ✕
+                      </button>
+                    </div>
+                  </motion.div>
+                )}
+              </AnimatePresence>
+
+              <AIResponsePanel editor={editor} onRegenerate={handleRegenerate} />
 
               <div className="flex items-center justify-between py-2 mt-1 text-[12px] text-meta">
                 <span>
