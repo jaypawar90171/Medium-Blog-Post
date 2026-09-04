@@ -4,6 +4,7 @@ import { blogRouter } from './routes/blog'
 import { engagementRouter } from './routes/engagement'
 import { authMiddleware } from './middleware/auth'
 import type { Variables } from './lib/prisma'
+import { aiRouter } from './routes/ai'
 
 const app = new Hono<{ Variables: Variables }>()
 
@@ -14,6 +15,7 @@ app.get('/health', (c) => {
 app.route('/api/v1/user', userRouter)
 app.route('/api/v1/blog', blogRouter)
 app.route('/api/v1/engagement', engagementRouter)
+app.route('/api/v1/ai', aiRouter)
 
 app.notFound((c) => c.json({ error: 'Not found' }, 404))
 

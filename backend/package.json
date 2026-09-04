@@ -9,12 +9,14 @@
     "build": "tsc --noEmit"
   },
   "dependencies": {
+    "@hono/node-server": "^2.1.1",
     "@hono/zod-validator": "^0.9.0",
     "@neondatabase/serverless": "^1.1.0",
     "@prisma/client": "^7.10.0",
     "@prisma/extension-accelerate": "^3.0.1",
     "bcryptjs": "^3.0.3",
     "dotenv": "^17.4.2",
+    "groq-sdk": "^1.6.0",
     "hono": "^4.13.5",
     "prisma": "^7.10.0",
     "zod": "^4.5.4"
