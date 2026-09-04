@@ -1,0 +1,27 @@
+info:
+  name: Generate Content
+  type: http
+  seq: 13
+
+http:
+  method: POST
+  url: "{{BASE_URL}}/ai/generate"
+  headers:
+    - name: Authorization
+      value: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6IjI1ZmFjOTI5LWIwYWUtNDQwMS05YzUxLTg1MDk4N2ZmMGYwYiJ9.aPCtQEcNQS8BwS8C72zyaX62KSyV2Ls_qVcVmQJtjSg
+  body:
+    type: json
+    data: |-
+      {
+        "action": "improve_writing",
+        "selectedText": " Instead of shipping your entire application in one JavaScript bundle, lazy-load routes and heavy components with React.lazy and Suspense. This reduces the initial download size and improves page load speed. Large lists are another hidden performance killer.",
+        "contextBefore": "React applications often start out fast, but as features grow, performance issues can sneak in. Slow renders, large bundles, and unnecessary re-renders can make an app feel sluggish. The good news is that most performance problems have straightforward solutions. The first step is measuring before optimizing. Use React DevTools Profiler and Chrome Performance tools to identify components that render too often or take too long. Optimizing without profiling usually wastes time. One of the most common issues is unnecessary re-rendering. Wrap expensive components with React.memo when their props rarely change, and use useMemo for costly calculations like filtering or sorting large datasets. Similarly, useCallback helps maintain stable function references when passing callbacks to child components. Another major improvement comes from code splitting.",
+        "tone": "professional"
+      }
+  auth: inherit
+
+settings:
+  encodeUrl: true
+  timeout: 0
+  followRedirects: true
+  maxRedirects: 5

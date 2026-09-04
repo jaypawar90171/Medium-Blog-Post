@@ -1,14 +1,18 @@
 info:
-  name: Get All Blogs for user
+  name: Get Nested Comments for Parent Comments
   type: http
-  seq: 3
+  seq: 5
 
 http:
   method: GET
-  url: "{{BASE_URL}}/blog/mine"
+  url: "{{BASE_URL}}/engagement/comment/:parentId/replies"
   headers:
     - name: Authorization
       value: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6IjI1ZmFjOTI5LWIwYWUtNDQwMS05YzUxLTg1MDk4N2ZmMGYwYiJ9.aPCtQEcNQS8BwS8C72zyaX62KSyV2Ls_qVcVmQJtjSg
+  params:
+    - name: parentId
+      value: e627135c-581b-4da2-b75a-63aba04fc608
+      type: path
   auth: inherit
 
 settings:
